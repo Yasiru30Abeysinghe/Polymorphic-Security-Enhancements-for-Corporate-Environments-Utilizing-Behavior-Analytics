@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risk Coefficient Manager</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        canvas { margin-bottom: 20px; }
+        input { width: 50px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Risk Coefficient Manager</h1>
+        <canvas id="coefficientChart"></canvas>
+        <form id="coefficientForm">
+            {% for key, value in coefficients.items() %}
+            <label for="{{ key }}">{{ key.upper() }}:</label>
+            <input type="number" id="{{ key }}" name="{{ key }}" value="{{ value }}" step="0.000000001" min="0" max="1" required>
+            {% endfor %}
+            <button type="submit">Update Coefficients</button>
+        </form>
+    </div>
+    <script>
+        // Chart initialization
+        const ctx = document.getElementById('coefficientChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: {{ coefficients.keys() | list | tojson }},
+                datasets: [{
+                    label: 'Coefficient Values',
+                    data: {{ coefficients.values() | list | tojson }},
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)'
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 1
+                    }
+                }
+            }
+        });
+
+        // Form submission
+        document.getElementById('coefficientForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+
+            fetch('/update_coefficients', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    alert('Coefficients updated successfully!');
+                    // Update chart
+                    chart.data.datasets[0].data = Object.values(data);
+                    chart.update();
+                } else {
+                    alert('Error updating coefficients');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
