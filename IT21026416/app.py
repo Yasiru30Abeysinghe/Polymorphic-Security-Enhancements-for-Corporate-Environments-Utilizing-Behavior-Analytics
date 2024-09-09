@@ -6,7 +6,7 @@ import json
 import logging
 
 # Load the trained model and tokenizer
-model_path = './nlp_model'
+model_path = './saved_models'
 model = BertForSequenceClassification.from_pretrained(model_path)
 tokenizer = BertTokenizer.from_pretrained(model_path)
 
