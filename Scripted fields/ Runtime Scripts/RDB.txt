@@ -1,0 +1,162 @@
+// Define the target versions and their corresponding scores
+String[] targetVersions = new String[] {
+    "125.0.6422.112".trim(),
+    "125.0.6422.60".trim(),
+    "124.0.6367.207".trim(),
+    "124.0.6367.201".trim(),
+    "120.0.6099.224".trim(),
+    "120.0.6099.129".trim(),
+    "119.0.6045.199".trim(),
+    "116.0.5845.187".trim(),
+    "116.0.5845.179".trim(),
+    "114.0.5735.110".trim(),
+    "112.0.5615.137".trim(),
+    "112.0.5615.121".trim(),
+    "108.0.5359.94".trim(),
+    "107.0.5304.121".trim(),
+    "107.0.5304.87".trim(),
+    "105.0.5195.102".trim(),
+    "105.0.5195.52".trim(),
+    "104.0.5112.101".trim(),
+    "103.0.5060.114".trim(),
+    "100.0.4896.127".trim(),
+    "99.0.4844.84".trim(),
+    "98.0.4758.102".trim(),
+    "95.0.4638.69".trim(),
+    "94.0.4606.71".trim(),
+    "94.0.4606.61".trim(),
+    "93.0.4577.82".trim(),
+    "91.0.4472.164".trim(),
+    "91.0.4472.101".trim(),
+    "91.0.4472.77".trim(),
+    "90.0.4430.85".trim(),
+    "89.0.4389.128".trim(),
+    "89.0.4389.90".trim(),
+    "89.0.4389.72".trim(),
+    "88.0.4324.150".trim(),
+    "96.0.4664.110".trim(),
+    "86.0.4240.198".trim(),
+    "86.0.4240.185".trim(),
+    "86.0.4240.183".trim(),
+    "86.0.4240.111".trim(),
+    "81.0.4044.92".trim(),
+    "80.0.3987.122".trim(),
+    "78.0.3904.87".trim(),
+    "73.0.3683.86".trim(),
+    "72.0.3626.121".trim(),
+    "71.0.3578.80".trim(),
+    "70.0.3538.64".trim(),
+    "65.0.3325.146".trim(),
+    "59.0.3071.92".trim(),
+    "57.0.2987.108".trim(),
+    "54.0.2840.87".trim(),
+    "49.0.2623.108".trim(),
+    "10.2.154.27".trim()
+};
+
+double[] scores = new double[] {
+    0.0264,
+    0.02112,
+    0.01936,
+    0.0096,
+    0.01848,
+    0.0616,
+    0.7056,
+    5.60032,
+    6.29288,
+    0.92048,
+    0.07008,
+    0.23144,
+    0.03608,
+    0.15552,
+    0.15664,
+    0.09888,
+    2.41472,
+    0.2431,
+    0.11616,
+    0.1804,
+    0.1232,
+    0.36432,
+    0.17776,
+    0.09211,
+    1.05885,
+    1.26456,
+    0.14016,
+    0.06912,
+    5.17704,
+    0.03256,
+    0.16016,
+    3.1284,
+    0.1131,
+    6.4328,
+    8.38464,
+    0.4004,
+    0.10032,
+    0.3344,
+    0.10208,
+    0.25784,
+    0.02208,
+    0.02816,
+    7.89624,
+    0.1898,
+    0.04743,
+    8.54128,
+    8.5712,
+    4.5617,
+    6.31995,
+    7.63312,
+    8.53424,
+    8.5008,
+    7.7088,
+    7.04792,
+    4.05504,
+    2.68863,
+    9.02379
+};
+
+// Initialize variables
+def totalScore = 0.0;
+def matchCount = 0;
+
+// Check if the field exists and has a value
+if (doc.containsKey('msg_json.ChromeVersion') && doc['msg_json.ChromeVersion'].size() > 0) {
+    def chromeVersion = doc['msg_json.ChromeVersion'].value;
+
+    // Split the version into its components
+    def versionParts = chromeVersion.splitOnToken('.');
+    if (versionParts.length >= 4) {
+        def versionMajor = Integer.parseInt(versionParts[0]);
+        def versionMinor = Integer.parseInt(versionParts[1]);
+        def versionBuild1 = Integer.parseInt(versionParts[2]);
+        def versionBuild2 = Integer.parseInt(versionParts[3]);
+
+        // Loop through each target version
+        for (int i = 0; i < targetVersions.length; i++) {
+            def targetVersion = targetVersions[i];
+            def score = scores[i];
+
+            // Split the target version into its components
+            def targetParts = targetVersion.splitOnToken('.');
+            def targetMajor = Integer.parseInt(targetParts[0]);
+            def targetMinor = Integer.parseInt(targetParts[1]);
+            def targetBuild1 = Integer.parseInt(targetParts[2]);
+            def targetBuild2 = Integer.parseInt(targetParts[3]);
+
+            // Perform the comparison and update the total score and match count
+            if (versionMajor < targetMajor ||
+                (versionMajor == targetMajor && versionMinor < targetMinor) ||
+                (versionMajor == targetMajor && versionMinor == targetMinor && 
+                 (versionBuild1 < targetBuild1 || (versionBuild1 == targetBuild1 && versionBuild2 < targetBuild2)))) {
+                totalScore += score;
+                matchCount++;
+            }
+        }
+    }
+}
+
+// Calculate the final RDB score
+if (matchCount > 0) {
+    emit((totalScore / (matchCount * 10)) * 100);
+} else {
+    emit(0.0);
+}
