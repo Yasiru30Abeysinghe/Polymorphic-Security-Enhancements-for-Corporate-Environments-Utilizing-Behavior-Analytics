@@ -1,0 +1,78 @@
+{
+    "Chrome": {
+        "registry_path": "HKEY_LOCAL_MACHINE\\Software\\Policies\\Google\\Chrome",
+        "policies": {
+            "DefaultGeolocationSetting": 1,
+            "VideoCaptureAllowed": 1,
+            "DefaultSensorsSetting": 1,
+            "DefaultNotificationsSetting": 1,
+            "DefaultJavaScriptSetting": 1,
+            "DefaultPopupsSetting": 1,
+            "DefaultWebUsbGuardSetting": 1,
+            "ExtensionInstallAllowlist": [
+                "aapbdbdomjkkjkaonfhkkikfgjllcleb",
+                "cndibmoanboadcifjkjbdpjgfedanolh"
+            ],
+            "ExtensionInstallBlocklist": [
+                "flabjpngncbibbddhckgldbhadelahkf"
+            ]
+        }
+    },
+    "Brave": {
+        "registry_path": "HKEY_LOCAL_MACHINE\\Software\\Policies\\BraveSoftware\\Brave",
+        "policies": {
+            "DefaultGeolocationSetting": 1,
+            "VideoCaptureAllowed": 1,
+            "DefaultSensorsSetting": 1,
+            "DefaultNotificationsSetting": 1,
+            "DefaultJavaScriptSetting": 1,
+            "DefaultPopupsSetting": 1,
+            "DefaultWebUsbGuardSetting": 1,
+            "ExtensionInstallAllowlist": [
+                "aapbdbdomjkkjkaonfhkkikfgjllcleb",
+                "cndibmoanboadcifjkjbdpjgfedanolh"
+            ],
+            "ExtensionInstallBlocklist": [
+                "flabjpngncbibbddhckgldbhadelahkf"
+            ]
+        }
+    },
+    "Edge": {
+        "registry_path": "HKEY_LOCAL_MACHINE\\Software\\Policies\\Microsoft\\Edge",
+        "policies": {
+            "DefaultGeolocationSetting": 1,
+            "VideoCaptureAllowed": 1,
+            "DefaultSensorsSetting": 1,
+            "DefaultNotificationsSetting": 1,
+            "DefaultJavaScriptSetting": 1,
+            "DefaultPopupsSetting": 1,
+            "DefaultWebUsbGuardSetting": 1,
+            "ExtensionInstallAllowlist": [
+                "aapbdbdomjkkjkaonfhkkikfgjllcleb",
+                "cndibmoanboadcifjkjbdpjgfedanolh"
+            ],
+            "ExtensionInstallBlocklist": [
+                "flabjpngncbibbddhckgldbhadelahkf"
+            ]
+        }
+    },
+    "Vivaldi": {
+        "registry_path": "HKEY_LOCAL_MACHINE\\Software\\Policies\\Vivaldi",
+        "policies": {
+            "DefaultGeolocationSetting": 1,
+            "VideoCaptureAllowed": 1,
+            "DefaultSensorsSetting": 1,
+            "DefaultNotificationsSetting": 1,
+            "DefaultJavaScriptSetting": 1,
+            "DefaultPopupsSetting": 1,
+            "DefaultWebUsbGuardSetting": 1,
+            "ExtensionInstallAllowlist": [
+                "aapbdbdomjkkjkaonfhkkikfgjllcleb",
+                "cndibmoanboadcifjkjbdpjgfedanolh"
+            ],
+            "ExtensionInstallBlocklist": [
+                "flabjpngncbibbddhckgldbhadelahkf"
+            ]
+        }
+    }
+}
