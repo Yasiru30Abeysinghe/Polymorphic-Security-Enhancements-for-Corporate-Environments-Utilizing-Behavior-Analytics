@@ -1,0 +1,20 @@
+if (doc.containsKey('msg_json.ThrirdPartyCookies') && doc['msg_json.ThrirdPartyCookies'].size() > 0) {
+    def cookieValue = doc['msg_json.ThrirdPartyCookies'].value;
+    
+    if (cookieValue != null) {
+        // Convert to a number if it's not already
+        def cookieCount = (cookieValue instanceof Number) ? 
+                          cookieValue : Double.parseDouble(cookieValue.toString());
+        
+        // Calculate RTC using a logarithmic scale
+        // We'll use log base 2 and scale it to reach 100 at 2000 cookies
+        def maxCookies = 2000;
+        def rtc = Math.min((Math.log(cookieCount + 1) / Math.log(2)) / (Math.log(maxCookies) / Math.log(2)) * 100, 100);
+        
+        emit(rtc);
+    } else {
+        emit(0); // No cookies, no risk
+    }
+} else {
+    emit(0); // Field doesn't exist or is empty, assume no risk
+}
