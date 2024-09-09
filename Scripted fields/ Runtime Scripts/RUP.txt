@@ -1,0 +1,20 @@
+if (doc.containsKey('msg_json.UnsecureProtocol') && doc['msg_json.UnsecureProtocol'].size() > 0) {
+    def unsecureProtocolCount = doc['msg_json.UnsecureProtocol'].value;
+    
+    if (unsecureProtocolCount != null) {
+        // Convert to a number if it's not already
+        def count = (unsecureProtocolCount instanceof Number) ? 
+                    unsecureProtocolCount : Double.parseDouble(unsecureProtocolCount.toString());
+        
+        // Calculate RUP using a logarithmic scale
+        // We'll use log base 2 and scale it to reach 100 at 10000 insecure protocols
+        def maxUnsecureProtocols = 10000;
+        def rup = Math.min((Math.log(count + 1) / Math.log(2)) / (Math.log(maxUnsecureProtocols) / Math.log(2)) * 100, 100);
+        
+        emit(rup);
+    } else {
+        emit(0); // No insecure protocols, no risk
+    }
+} else {
+    emit(0); // Field doesn't exist or is empty, assume no risk
+}
