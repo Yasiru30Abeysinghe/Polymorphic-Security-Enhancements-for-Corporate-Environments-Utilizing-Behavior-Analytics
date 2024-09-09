@@ -1,0 +1,21 @@
+if (doc.containsKey('msg_json.HardwareAccess') && doc['msg_json.HardwareAccess'].size() > 0) {
+    def hardwareAccess = doc['msg_json.HardwareAccess'].value;
+    
+    if (hardwareAccess != null) {
+        // Convert to a number if it's not already
+        def accessValue = (hardwareAccess instanceof Number) ? 
+                          hardwareAccess : Integer.parseInt(hardwareAccess.toString());
+        
+        // Calculate RCL
+        def rcl = 0;
+        if ((accessValue & 1) != 0) rcl += 33; // Camera access
+        if ((accessValue & 2) != 0) rcl += 33; // Microphone access
+        if ((accessValue & 4) != 0) rcl += 34; // Location access
+        
+        emit(rcl);
+    } else {
+        emit(0); // If null, assume no risk
+    }
+} else {
+    emit(0); // If field doesn't exist, assume no risk
+}
