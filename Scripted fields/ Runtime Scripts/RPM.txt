@@ -1,0 +1,20 @@
+if (doc.containsKey('msg_json.WeakPassMgmt') && doc['msg_json.WeakPassMgmt'].size() > 0) {
+    def weakPassCount = doc['msg_json.WeakPassMgmt'].value;
+    
+    if (weakPassCount != null) {
+        // Convert to a number if it's not already
+        def count = (weakPassCount instanceof Number) ? 
+                    weakPassCount : Double.parseDouble(weakPassCount.toString());
+        
+        // Calculate RPM using a logarithmic scale
+        // We'll use log base 2 and scale it to reach 100 at 1024 weak passwords
+        def maxWeakPasswords = 1024;
+        def rpm = Math.min((Math.log(count + 1) / Math.log(2)) / (Math.log(maxWeakPasswords) / Math.log(2)) * 100, 100);
+        
+        emit(rpm);
+    } else {
+        emit(0); // No weak passwords, no risk
+    }
+} else {
+    emit(0); // Field doesn't exist or is empty, assume no risk
+}
