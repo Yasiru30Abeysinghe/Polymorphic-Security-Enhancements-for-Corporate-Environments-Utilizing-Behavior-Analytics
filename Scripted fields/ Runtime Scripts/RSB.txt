@@ -1,0 +1,24 @@
+if (doc.containsKey('msg_json.DisabledSafeBrowsing') && doc['msg_json.DisabledSafeBrowsing'].size() > 0) {
+    def safeBrowsingStatus = doc['msg_json.DisabledSafeBrowsing'].value;
+    
+    if (safeBrowsingStatus != null) {
+        // Convert string to lowercase for case-insensitive comparison
+        safeBrowsingStatus = safeBrowsingStatus.toLowerCase();
+        
+        // Check if Safe Browsing is disabled
+        def rsb;
+        if (safeBrowsingStatus == 'true' || safeBrowsingStatus == 'yes' || safeBrowsingStatus == 'disabled') {
+            rsb = 100; // Safe Browsing is disabled, high risk
+        } else if (safeBrowsingStatus == 'false' || safeBrowsingStatus == 'no' || safeBrowsingStatus == 'enabled') {
+            rsb = 0;   // Safe Browsing is enabled, no risk
+        } else {
+            rsb = 50;  // Unknown status, assume medium risk
+        }
+        
+        emit(rsb);
+    } else {
+        emit(50); // If null, assume medium risk
+    }
+} else {
+    emit(50); // If field doesn't exist, assume medium risk
+}
