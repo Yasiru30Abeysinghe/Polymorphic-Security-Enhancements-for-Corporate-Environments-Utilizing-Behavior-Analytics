@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Interface for Security Policy Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 700px;
+            margin: 20px auto;    
+        }
+        .hidden{
+            display:none;
+        }
+        .condition-container {
+            display: flex;
+            margin-top: 10px;
+        }
+        .condition-container select, .condition-container input {
+            margin-right: 10px;
+        }
+        .add-condition, .remove-condition {
+            cursor: pointer;
+            color: blue;
+            margin-left: 5px;
+        }
+        .remove-condition {
+            color: red;
+        }
+        h1, h2 {
+            text-align: center;
+        }
+        form {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+        }
+        input[type="radio"] {
+            margin-right: 5px;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .container label {
+            display: flex;
+            align-items: center;
+        }
+        .container input[type="checkbox"] {
+            margin-right: 5px;
+        }
+        .time-to-live {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .time-to-live input {
+            margin-left: 10px;
+            width: 50px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+        }
+        .btn-toggle.active {
+            background-color: #d4e2fc;
+            border-color: #5f9ea0;
+            color: #000;
+        }
+        /* Tooltip container */
+        .help-icon {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            margin-left: 5px;
+            color: #007bff;
+        }
+        /* Tooltip text */
+        .help-icon .help-text {
+            visibility: hidden;
+            width: 300px;
+            background-color: #f9f9f9;
+            color: #333;
+            text-align: left;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%; /* Position the tooltip above the icon */
+            left: 50%;
+            margin-left: -150px; /* Center the tooltip */
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 14px;
+        }
+        .help-icon .help-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #f9f9f9 transparent transparent transparent;
+        }
+        .help-icon:hover .help-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        iframe {
+            width: 100%;
+            height: 190px;
+            border: 1px solid #ccc;
+            margin-top: 20px;
+        }
+    </style>
+<!-- Tagify CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@yaireo/tagify/dist/tagify.css">
+
+</head>
+<body>
+    <h1>Admin Interface for Security Policy Management</h1>
+    
+    <form id="policyForm" method="post" action="/generate">
+        <!-- Hidden field for security_requirement -->
+        <input type="hidden" name="security_requirement" value="{{ security_requirement }}">
+        {% if category == 'Threat Prevention Policy' %}
+            <h2>Threat Prevention Policy</h2>
+            <input type="hidden" name="classification" value="{{classification}}">
+                
+            <!-- Threat Prevention Policy Form Fields -->
+            <label for="safe_browsing_protection_level">Safe Browsing Protection Level
+            <span class="help-icon">(?)<span class="help-text">
+            Controls the level of Safe Browsing protection. 
+            <br> 
+                No Protection (Safe Browsing is never active).
+                <br> 
+                Standard Protection (Safe Browsing is active in standard mode).
+                <br> 
+                Enhanced Protection (Safe Browsing is active in enhanced mode; requires sharing more browsing information with Google).
+            </span></span>
+            </label>
+            <input type="radio" id="safe_browsing_protection_level_no_protection" name="SafeBrowsingProtectionLevel" value="0"> No Protection
+            <input type="radio" id="safe_browsing_protection_level_standard" name="SafeBrowsingProtectionLevel" value="1" checked> Standard Protection
+            <input type="radio" id="safe_browsing_protection_level_enhanced" name="SafeBrowsingProtectionLevel" value="2"> Enhanced Protection
+            <br>
+
+            <label for="block_obstructive_websites">Block obstructive websites<span class="help-icon">(?)<span class="help-text">Setting the policy controls the SafeSites URL filter, which uses the Google Safe Search API to classify URLs as pornographic or not.</span></span>
+            </label>
+            <input type="radio" id="block_obstructive_websites_enable" name="BlockObstructiveWebsites" value="enable"> Enable
+            <input type="radio" id="block_obstructive_websites_disable" name="BlockObstructiveWebsites" value="disable"> Disable
+            <input type="radio" id="block_obstructive_websites_not_configured" name="BlockObstructiveWebsites" value="not_configured" checked> Not Configured
+            <br>
+
+            <br>
+            <label for="override_certificate_errors">Override certificate errors
+            <span class="help-icon">(?)<span class="help-text">Determines whether users can override SSL certificate errors, which can occur when visiting sites with outdated or self-signed certificates.</span></span>
+            </label>
+            <input type="radio" id="override_certificate_errors_allow" name="OverrideCertificateErrors" value="enable"> Enable
+            <input type="radio" id="override_certificate_errors_restrict" name="OverrideCertificateErrors" value="disable"> Disable
+            <input type="radio" id="override_certificate_errors_not_configured" name="OverrideCertificateErrors" value="not_configured" checked> Not Configured
+            <br>
+            <label for="block_excessive_ads">Block websites with excessive ads
+            <span class="help-icon">(?)<span class="help-text">Blocks access to websites that display excessive or intrusive advertisements, enhancing user experience and reducing distractions.</span></span>
+            </label>
+            <input type="radio" id="block_excessive_ads_enable" name="BlockExcessiveAds" value="enable"> Enable
+            <input type="radio" id="block_excessive_ads_disable" name="BlockExcessiveAds" value="disable"> Disable
+            <input type="radio" id="block_excessive_ads_not_configured" name="BlockExcessiveAds" value="not_configured" checked> Not Configured
+            <br>
+            <label for="block_injected_code">Block third-party websites that inject code
+            <span class="help-icon">(?)<span class="help-text">Prevents third-party websites from injecting code into the browser, which can be a vector for malware or unauthorized access.</span></span>
+            </label>
+            <input type="radio" id="block_injected_code_enable" name="BlockInjectedCode" value="enable"> Enable
+            <input type="radio" id="block_injected_code_disable" name="BlockInjectedCode" value="disable"> Disable
+            <input type="radio" id="block_injected_code_not_configured" name="BlockInjectedCode" value="not_configured" checked> Not Configured
+            <br>
+
+            <label for="whitelist_extensions">Whitelist extensions (comma-separated) <span class="help-icon">(?)<span class="help-text">Specify extensions that are allowed to be installed, ensuring they meet security criteria.</span></span>
+            </label>
+            <input type="text" id="whitelist_extensions" name="WhitelistExtensions">
+            <br>
+            <label for="blacklist_extensions">Blacklist extensions (comma-separated)
+            
+                <span class="help-icon">(?)<span class="help-text">Specify extensions that are blocked from being installed, typically those known to be harmful or non-compliant with security policies.</span></span>
+            </label>
+            <input type="text" id="blacklist_extensions" name="BlacklistExtensions">
+            <br>
+            <br>
+            <!-- SITE SETTINGSS -->
+            <label for="SetPermission">Set permissions by default</label>
+          <!--   <label for="webdomain">Website Domain (e.g., https://example.com):</label>
+            <input type="text" id="domain" name="domain" required>
+            <br>-->
+        
+    <!-- Geolocation -->
+            <label for="geolocation">Geolocation Access:</label>
+            <input type="radio" id="geolocation_allow" name="geolocation" value="allow" checked> Allow
+            <input type="radio" id="geolocation_block" name="geolocation" value="block" > Block
+    <br>
+
+    <!-- Camera Access -->
+            <label for="camera">Camera Access:</label>
+            <input type="radio" id="camera_allow" name="camera" value="allow" checked> Allow
+            <input type="radio" id="camera_block" name="camera" value="block" > Block
+    <br>
+    <!--Motion Sensors-->
+            <label for="motion_sensor">Motion Sensors:</label>
+            <input type="radio" id="motion_sensor_allow" name="sensor" value="allow" checked> Allow
+            <input type="radio" id="motion_sensor_block" name="sensor" value="block" > Block
+            <br>
+    <!--Notifications-->
+
+            <label for="notifications">Notifications:</label>
+            <input type="radio" id="notifications_allow" name="notifications" value="allow" checked> Allow
+            <input type="radio" id="notifications_block" name="notifications" value="block" > Block
+
+            <br>
+    <!--JavaScript-->
+            <label for="javascript">JavaScript:</label>
+            <input type="radio" id="js_allow" name="js" value="allow" checked> Allow
+            <input type="radio" id="js_block" name="js" value="block" > Block   
+
+            <br>
+    <!-- Pop-ups -->
+            <label for="popups">Pop-ups:</label>
+            <input type="radio" id="popups_allow" name="popups" value="allow" checked> Allow
+            <input type="radio" id="popups_block" name="popups" value="block" > Block
+    <br>
+
+    <!-- USB Access -->
+            <label for="usb">Web USB Access:</label>
+            <input type="radio" id="usb_allow" name="usb" value="allow" checked> Allow
+            <input type="radio" id="usb_block" name="usb" value="block" > Block
+    <br>
+
+            <!-- Block URLs -->
+            <label for="block_urls">Enter web-domains/URLs to be blocked:</label>
+            <input type="text" id="block_urls" name="BlockURLs" placeholder="Enter URLs to be blocked" class="tagify-input">
+            <br>
+            
+            <!-- Allow URLs -->
+            <label for="allow_urls">Enter web-domains/URLs to be allowed:</label>
+            <input type="text" id="allow_urls" name="AllowURLs" placeholder="Enter URLs to be allowed" class="tagify-input">
+            <br>
+         
+
+        {% elif category == 'Data Leakage Policy' %}
+            <h2>Category: Data Leakage Policy</h2>
+            <input type="hidden" name="classification" value="{{classification}}">
+            
+            <!-- Data Leakage Policy Form Fields --> 
+            <label for="print_webpage">Print webpage:</label>
+            <input type="radio" id="print_webpage_allow" name="PrintWebpage" value="allow"> Allow
+            <input type="radio" id="print_webpage_restrict" name="PrintWebpage" value="restrict"> Restrict
+            <input type="radio" id="print_webpage_not_configured" name="PrintWebpage" value="not_configured" checked> Not Configured
+            <br>
+            <label for="automatic_browser_sync">Automatic browser sync:</label>
+            <input type="radio" id="automatic_browser_sync_allow" name="AutomaticBrowserSync" value="allow"> Allow
+            <input type="radio" id="automatic_browser_sync_restrict" name="AutomaticBrowserSync" value="restrict"> Restrict
+            <input type="radio" id="automatic_browser_sync_not_configured" name="AutomaticBrowserSync" value="not_configured" checked> Not Configured
+            <br>
+            <label for="save_browser_history">Save browser history:</label>
+            <input type="radio" id="save_browser_history_allow" name="SaveBrowserHistory" value="allow"> Allow
+            <input type="radio" id="save_browser_history_restrict" name="SaveBrowserHistory" value="restrict"> Restrict
+            <input type="radio" id="save_browser_history_not_configured" name="SaveBrowserHistory" value="not_configured" checked> Not Configured
+            <br>
+            <label for="autofill">Autofill:</label>
+            <input type="radio" id="autofill_allow" name="Autofill" value="allow"> Allow
+            <input type="radio" id="autofill_restrict" name="Autofill" value="restrict"> Restrict
+            <input type="radio" id="autofill_not_configured" name="Autofill" value="not_configured" checked> Not Configured
+            <br>
+            <label for="file_uploads">File upload to webpages:</label>
+            <input type="radio" id="file_uploads_allow" name="FileUploads" value="allow"> Allow
+            <input type="radio" id="file_uploads_restrict" name="FileUploads" value="restrict"> Restrict
+            <input type="radio" id="file_uploads_not_configured" name="FileUploads" value="not_configured" checked> Not Configured
+            <br>
+            <label for="capture_screenshots">Capture screenshots:</label>
+            <input type="radio" id="capture_screenshots_allow" name="CaptureScreenshots" value="allow"> Allow
+            <input type="radio" id="capture_screenshots_restrict" name="CaptureScreenshots" value="restrict"> Restrict
+            <input type="radio" id="capture_screenshots_not_configured" name="CaptureScreenshots" value="not_configured" checked> Not Configured
+            <br>
+            <label for="remember_passwords">Remember passwords:</label>
+            <input type="radio" id="remember_passwords_allow" name="RememberPasswords" value="allow"> Allow
+            <input type="radio" id="remember_passwords_restrict" name="RememberPasswords" value="restrict"> Restrict
+            <input type="radio" id="remember_passwords_not_configured" name="RememberPasswords" value="not_configured" checked> Not Configured
+            <br>
+            <label for="site_per_process">Site per process:</label>
+            <input type="radio" id="site_per_process_enable" name="SitePerProcess" value="enable"> Enable
+            <input type="radio" id="site_per_process_disable" name="SitePerProcess" value="disable"> Disable
+            <input type="radio" id="site_per_process_not_configured" name="SitePerProcess" value="not_configured" checked> Not Configured
+            <br>
+            <label for="search_suggestions">Search suggestions:</label>
+            <input type="radio" id="search_suggestions_enable" name="SearchSuggestions" value="enable"> Enable
+            <input type="radio" id="search_suggestions_disable" name="SearchSuggestions" value="disable"> Disable
+            <input type="radio" id="search_suggestions_not_configured" name="SearchSuggestions" value="not_configured" checked> Not Configured
+            <br>
+            <label for="metrics_reporting">Metrics reporting to Google:</label>
+            <input type="radio" id="metrics_reporting_enable" name="MetricsReporting" value="enable"> Enable
+            <input type="radio" id="metrics_reporting_disable" name="MetricsReporting" value="disable"> Disable
+            <input type="radio" id="metrics_reporting_not_configured" name="MetricsReporting" value="not_configured" checked> Not Configured
+            <br>
+            <label for="prompt_download_location">Prompt for download location:</label>
+            <input type="radio" id="prompt_download_location_enable" name="PromptDownloadLocation" value="enable"> Enable
+            <input type="radio" id="prompt_download_location_disable" name="PromptDownloadLocation" value="disable"> Disable
+            <input type="radio" id="prompt_download_location_not_configured" name="PromptDownloadLocation" value="not_configured" checked> Not Configured
+            <br>
+            <label for="browser_history_deletion">Browser history deletion:</label>
+            <input type="radio" id="browser_history_deletion_enable" name="BrowserHistoryDeletion" value="enable"> Enable
+            <input type="radio" id="browser_history_deletion_disable" name="BrowserHistoryDeletion" value="disable"> Disable
+            <input type="radio" id="browser_history_deletion_not_configured" name="BrowserHistoryDeletion" value="not_configured" checked> Not Configured
+            <br>
+            <label for="background_processing">Background processing:</label>
+            <input type="radio" id="background_processing_enable" name="BackgroundProcessing" value="enable"> Enable
+            <input type="radio" id="background_processing_disable" name="BackgroundProcessing" value="disable"> Disable
+            <input type="radio" id="background_processing_not_configured" name="BackgroundProcessing" value="not_configured" checked> Not Configured
+            <br>
+            <label for="network_predictions">Network predictions:</label>
+            <input type="radio" id="network_predictions_enable" name="NetworkPredictions" value="enable"> Enable
+            <input type="radio" id="network_predictions_disable" name="NetworkPredictions" value="disable"> Disable
+            <input type="radio" id="network_predictions_not_configured" name="NetworkPredictions" value="not_configured" checked> Not Configured
+            <br>
+            <label for="third_party_cookies">Third party cookies:</label>
+            <input type="radio" id="third_party_cookies_always_allow" name="ThirdPartyCookies" value="always_allow"> Always Allow
+            <input type="radio" id="third_party_cookies_never_allow" name="ThirdPartyCookies" value="never_allow"> Never Allow
+            <input type="radio" id="third_party_cookies_allow_visited_sites" name="ThirdPartyCookies" value="allow_visited_sites"> Allow only in visited sites
+            <input type="radio" id="third_party_cookies_not_configured" name="ThirdPartyCookies" value="not_configured" checked> Not Configured
+            <br>
+
+            
+                <!-- Hidden field for block downloads -->
+            <input type="hidden" name="block_all" value="no">
+
+            <!-- Container to dynamically add condition fields from the iframe -->
+             <div id="conditionsContainer"></div>
+
+    <!-- Load blockdown.html inside iframe -->
+            <iframe src="{{ url_for('static', filename='blockdown.html') }}" frameborder="0" id="blockdownIframe"></iframe>
+
+            <br>
+            <label>Configure Browsing Data Lifetime:- </label>
+            <label for="data_type">Select Data Type:</label>
+            <select name="BrowsingDataLifetime[data_type]" id="data_type" required>
+                <option value="browsing_history">Browsing History</option>
+                <option value="download_history">Download History</option>
+                <option value="cookies_and_other_site_data">Cookies and Other Site Data</option>
+                <option value="cached_images_and_files">Cached Images and Files</option> 
+                <option value="password_signin">Password Sign-in</option>
+                <option value="autofill">Autofill</option>
+            </select>
+    
+            <div class="time-to-live">
+                <label for="time_to_live_in_hours">Time to Live (in hours):</label>
+                <input type="number" id="time_to_live_in_hours" name="BrowsingDataLifetime[time_to_live_in_hours]" min="1" required>
+            </div>       
+        
+                    <!-- Block third-party cookies -->
+            <label for="block_injected_code">Block third-party website cookies:</label>
+            <input type="radio" id="block_third_party_cookie_enable" name="BlockThirdPartyCookies" value="enable"> Enable
+            <input type="radio" id="block_third_party_cookie_disable" name="BlockThirdPartyCookies" value="disable"> Disable
+            <input type="radio" id="block_third_party_cookie_not_configured" name="BlockThirdPartyCookies" value="not_configured" checked> Not Configured
+            <br>
+        
+        <!--    {% elif category == 'Web Filter Policy' %}
+        <h2>Category: Web Filter Policy</h2>
+        <input type="hidden" name="classification" value="{{classification}}">
+        
+
+   
+        {% endif %} 
+        -->
+          
+        <script>
+            // Listen for messages from the iframe (blockdown.html)
+            window.addEventListener('message', function(event) {
+                if (event.data && event.data.block_all) {
+                    // Set the block_all value in the parent form
+                    document.querySelector('input[name="block_all"]').value = event.data.block_all;
+            
+                    // Clear any existing conditions and append new ones
+                    const conditionsContainer = document.querySelector('#conditionsContainer');
+                    conditionsContainer.innerHTML = ''; // Clear existing conditions
+            
+                    // Loop through the conditions and add them to the parent form
+                    event.data.conditions.forEach(condition => {
+                        const conditionTypeInput = document.createElement('input');
+                        conditionTypeInput.type = 'hidden';
+                        conditionTypeInput.name = 'conditionType[]';
+                        conditionTypeInput.value = condition.type;
+            
+                        const conditionValueInput = document.createElement('input');
+                        conditionValueInput.type = 'hidden';
+                        conditionValueInput.name = 'conditionValue[]';
+                        conditionValueInput.value = condition.value;
+            
+                        conditionsContainer.appendChild(conditionTypeInput);
+                        conditionsContainer.appendChild(conditionValueInput);
+                    });
+                }
+            });
+            </script>
+
+            <!-- Add this div to hold the conditions -->
+            <div id="conditionsContainer"></div>
+          
+
+<script>
+    // Initialize Tagify on the BlockURLs and AllowURLs input fields
+    var blockURLsInput = document.querySelector('#block_urls');
+    var allowURLsInput = document.querySelector('#allow_urls');
+
+    // Create Tagify instances for both fields
+    var tagifyBlockURLs = new Tagify(blockURLsInput, {
+        whitelist: [],
+        dropdown: {
+            maxItems: 20,           // max number of items to show in the dropdown
+            classname: "tags-look",  // custom class for the dropdown menu
+            enabled: 0,              // always show suggestions dropdown
+            closeOnSelect: false     // do not close the dropdown after selecting an item
+        }
+    });
+
+    var tagifyAllowURLs = new Tagify(allowURLsInput, {
+        whitelist: [],
+        dropdown: {
+            maxItems: 20,
+            classname: "tags-look",
+            enabled: 0,
+            closeOnSelect: false
+        }
+    });
+
+    // Optionally, handle form submission to get tag values
+    document.querySelector('#policyForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var blockURLs = tagifyBlockURLs.value;  // This will be an array of entered URLs
+        var allowURLs = tagifyAllowURLs.value;  // Same for allowed URLs
+        
+        // Convert arrays to comma-separated strings and set them in hidden inputs if needed
+        console.log(blockURLs, allowURLs);
+
+        // Submit form logic here
+        this.submit();
+    });
+</script>
+        <button type="submit" name="action" value="save">Save</button>
+        <button type="submit" name="action" value="save_and_apply">Save and Apply</button>
+    </form>
+
+</body>
+</html>
+
+
