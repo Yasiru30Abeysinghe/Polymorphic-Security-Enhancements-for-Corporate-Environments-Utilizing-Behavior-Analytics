@@ -1,0 +1,21 @@
+if (doc.containsKey('msg_json.MalDownload') && doc['msg_json.MalDownload'].size() > 0) {
+    def malDownloads = doc['msg_json.MalDownload'];
+    
+    if (malDownloads != null) {
+        // Count the number of malicious downloads
+        def malDownloadCount = malDownloads.length;
+        
+        // Calculate RMF
+        // You may want to adjust this calculation based on your specific risk model
+        if (malDownloadCount > 0) {
+            // Example: Linear scale where 1 download = 20%, 2 downloads = 40%, ..., 5+ downloads = 100%
+            emit(Math.min(malDownloadCount * 20, 100));
+        } else {
+            emit(0);
+        }
+    } else {
+        emit(0);
+    }
+} else {
+    emit(0);
+}
