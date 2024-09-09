@@ -1,0 +1,16 @@
+if (doc.containsKey('msg_json.Cache') && doc['msg_json.Cache'].size() > 0) {
+    def cacheValue = doc['msg_json.Cache'].value;
+    if (cacheValue != null) {
+        def daysSinceLastCleared = Double.parseDouble(cacheValue.toString());
+        
+        // Calculate RCC
+        // Assuming max risk (100) at 10 days or more, and linear scaling
+        def rcc = Math.min(daysSinceLastCleared * 10, 100);
+        
+        emit(rcc);
+    } else {
+        emit(0);
+    }
+} else {
+    emit(0);
+}
