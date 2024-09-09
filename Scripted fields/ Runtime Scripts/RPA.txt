@@ -1,0 +1,24 @@
+if (doc.containsKey('msg_json.BlockedPopUps') && doc['msg_json.BlockedPopUps'].size() > 0) {
+    def blockedPopUps = doc['msg_json.BlockedPopUps'].value;
+    
+    if (blockedPopUps != null) {
+        // Convert to lowercase for case-insensitive comparison
+        blockedPopUps = blockedPopUps.toLowerCase();
+        
+        // Calculate RPA
+        def rpa;
+        if (blockedPopUps == 'true') {
+            rpa = 0; // Pop-ups are blocked, so risk is minimal
+        } else if (blockedPopUps == 'false') {
+            rpa = 100; // Pop-ups are allowed, so risk is maximum
+        } else {
+            rpa = 50; // Unknown status, assume medium risk
+        }
+        
+        emit(rpa);
+    } else {
+        emit(50); // If null, assume medium risk
+    }
+} else {
+    emit(50); // If field doesn't exist, assume medium risk
+}
