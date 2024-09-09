@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Restriction Form</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+        .condition-container {
+            display: flex;
+            margin-top: 10px;
+        }
+        .condition-container select, .condition-container input {
+            margin-right: 10px;
+        }
+        .add-condition, .remove-condition {
+            cursor: pointer;
+            color: blue;
+            margin-left: 5px;
+        }
+        .remove-condition {
+            color: red;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+
+<title>Block Downloads</title>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Ensure the button exists before attaching event listener
+        const saveButton = document.getElementById('saveBlockDownloads');
+        
+        if (saveButton) {
+            saveButton.addEventListener('click', function(event) {
+                event.preventDefault();  // Prevent default form submission
+                sendToParentIframe();    // Send data to the parent form
+            });
+        } else {
+            console.error('Save button not found!');
+        }
+    
+        function sendToParentIframe() {
+            // Retrieve the block_all value
+            const blockAllValue = document.querySelector('input[name="block_all"]:checked').value;
+    
+            const conditions = [];
+    
+            // Loop through each condition container (URL or file type)
+            document.querySelectorAll('.condition-container').forEach(container => {
+                const conditionType = container.querySelector('select[name="conditionType[]"]').value;
+                const conditionValue = container.querySelector('input[name="conditionValue[]"]').value;
+                conditions.push({ type: conditionType, value: conditionValue });
+            });
+    
+            // Send the block_all and conditions data to the parent form
+            window.parent.postMessage({
+                block_all: blockAllValue,
+                conditions: conditions
+            }, '*');
+        }
+    });
+    </script>
+    
+    
+</head>
+<body>
+
+<h1>Restrict/Permit Downloads</h1>
+
+<form id="downloadForm">
+    <!-- Block all downloads option -->
+    <label>Block all downloads:</label>
+    <input type="radio" name="block_all" value="yes" onclick="toggleDownloadFields(true)"> Yes
+    <input type="radio" name="block_all" value="no" onclick="toggleDownloadFields(false)" checked> No
+    <br><br>
+
+    <!-- Download condition fields -->
+    <div id="downloadConditions">
+
+        <!-- Dropdown for Block/Allow -->
+        <label for="action">Action:</label>
+        <select id="action" name="action">
+            <option value="block">Block</option>
+            <option value="allow">Allow</option>
+        </select>
+
+        <!-- Condition fields -->
+        <div id="conditionsContainer">
+            <div class="condition-container">
+                <select name="conditionType[]">
+                    <option value="url">Web-domains/URLs</option>
+                    <option value="file_type">File types</option>
+                    <option value="file_size">File size</option>
+                    <option value="time_limit">Time limit</option>
+                </select>
+                <input type="text" name="conditionValue[]" placeholder="Enter value">
+                <span class="add-condition" onclick="addCondition()">+</span>
+            </div>
+        </div>
+    </div>
+
+    <br>
+    <!-- Save Button -->
+    <button id="saveBlockDownloads">Save</button>
+</form>
+
+<script>
+    let conditionCount = 1;
+    const maxConditions = 4;
+
+    // Function to show/hide fields based on the 'Block all downloads' toggle
+    function toggleDownloadFields(isBlockAll) {
+        const downloadConditions = document.getElementById('downloadConditions');
+        if (isBlockAll) {
+            downloadConditions.classList.add('hidden');
+        } else {
+            downloadConditions.classList.remove('hidden');
+        }
+    }
+
+    // Function to dynamically add condition fields up to a maximum of 4
+    function addCondition() {
+        if (conditionCount < maxConditions) {
+            const conditionsContainer = document.getElementById('conditionsContainer');
+            const conditionContainer = document.createElement('div');
+            conditionContainer.classList.add('condition-container');
+
+            const selectElement = document.createElement('select');
+            selectElement.name = 'conditionType[]';
+            selectElement.innerHTML = `
+                <option value="url">Web-domains/URLs</option>
+                <option value="file_type">File types</option>
+                <option value="file_size">File size</option>
+                <option value="time_limit">Time limit</option>
+            `;
+
+            const inputElement = document.createElement('input');
+            inputElement.type = 'text';
+            inputElement.name = 'conditionValue[]';
+            inputElement.placeholder = 'Enter value';
+
+            const addButton = document.createElement('span');
+            addButton.classList.add('add-condition');
+            addButton.textContent = '+';
+            addButton.onclick = addCondition;
+
+            const removeButton = document.createElement('span');
+            removeButton.classList.add('remove-condition');
+            removeButton.textContent = '−';
+            removeButton.onclick = function() {
+                conditionContainer.remove();
+                conditionCount--;
+            };
+
+            conditionContainer.appendChild(selectElement);
+            conditionContainer.appendChild(inputElement);
+            conditionContainer.appendChild(addButton);
+            conditionContainer.appendChild(removeButton);
+
+            conditionsContainer.appendChild(conditionContainer);
+            conditionCount++;
+        }
+    }
+
+    // Function to send the form data to the parent iframe
+// blockdown.html (JavaScript part)
+
+
+
+</script>
+
+</body>
+</html>
