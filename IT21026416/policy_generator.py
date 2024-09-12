@@ -159,7 +159,9 @@ def generate_policy_files(specifications):
                 }
             ]
             logging.info(f"Added BrowsingDataLifetime settings for {browser}: {policy_data[browser]['policies']['BrowsingDataLifetime']}")
-
+        else:
+            logging.info(f"Skipping BrowsingDataLifetime for {browser} as no data type is provided.")
+            logging.info(f"hello , this is a test test testing purpose ")
         # Processing ExemptDomainFileTypePairsFromFileTypeDownloadWarnings policy
         domains = [domain.strip() for domain in specifications.get('domains', '').split(',')]
         file_extension = specifications.get('file_extension', '').lower()
@@ -227,22 +229,26 @@ def generate_policy_files(specifications):
 
         # Call backendcodeforextension to get the actual extension IDs
         from backendcodeforextension import process_extension_whitelist_blacklist
-        whitelist_ids, blacklist_ids = process_extension_whitelist_blacklist(whitelist_extensions, blacklist_extensions)
-        logging.info(f"Whitelist IDs: {whitelist_ids}")
-        logging.info(f"Blacklist IDs: {blacklist_ids}")
 
-        # Update policies with the fetched extension IDs
-        if whitelist_ids:
-            logging.debug(f"Whitelist IDs to be written: {whitelist_ids}")
-            policy_data[browser]['policies']['ExtensionInstallAllowlist'] = whitelist_ids
-        else:
-            policy_data[browser]['policies']['ExtensionInstallAllowlist'] = []  # If no IDs, assign empty list
+        # Skip processing if both extension lists are empty
+        if whitelist_extensions or blacklist_extensions:
+            # Call backendcodeforextension to get the actual extension IDs
+            whitelist_ids, blacklist_ids = process_extension_whitelist_blacklist(whitelist_extensions, blacklist_extensions)
+            logging.info(f"Whitelist IDs: {whitelist_ids}")
+            logging.info(f"Blacklist IDs: {blacklist_ids}")
 
-        if blacklist_ids:
-            logging.debug(f"Blacklist IDs to be written: {blacklist_ids}")
-            policy_data[browser]['policies']['ExtensionInstallBlocklist'] = blacklist_ids
+            # Update policies with the fetched extension IDs if they exist
+            if whitelist_ids:
+                policy_data[browser]['policies']['ExtensionInstallAllowlist'] = whitelist_ids
+            else:
+                policy_data[browser]['policies']['ExtensionInstallAllowlist'] = []  # Empty list if no IDs
+            
+            if blacklist_ids:
+                policy_data[browser]['policies']['ExtensionInstallBlocklist'] = blacklist_ids
+            else:
+                policy_data[browser]['policies']['ExtensionInstallBlocklist'] = []  # Empty list if no IDs
         else:
-            policy_data[browser]['policies']['ExtensionInstallBlocklist'] = []  # If no IDs, assign empty list
+            logging.info(f"Skipping extension whitelist/blacklist for {browser} as no extensions are provided.")
 
 
     # Generate the browser extension config
