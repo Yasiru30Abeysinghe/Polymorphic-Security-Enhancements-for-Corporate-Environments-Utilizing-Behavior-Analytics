@@ -4,10 +4,13 @@ from transformers import BertTokenizer, BertForSequenceClassification
 import os
 import json
 import logging
+from chatbot import get_policy_recommendation  # Import the chatbot functionality
+
+
 
 # Load the trained model and tokenizer
 model_path = './saved_models'
-model = BertForSequenceClassification.from_pretrained(model_path)
+model = BertForSequenceClassification.from_pretrained(model_path,ignore_mismatched_sizes=True)
 tokenizer = BertTokenizer.from_pretrained(model_path)
 
 # Initialize Flask app
@@ -17,19 +20,23 @@ app = Flask(__name__)
 categories = [
     'Threat Prevention Policy',
     'Data Leakage Policy',
-    'Web Filter Policy'
 ]
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Function to classify text
 def classify_text(text):
     inputs = tokenizer(text, return_tensors='pt', truncation=True, padding=True)
     outputs = model(**inputs)
     logits = outputs.logits
-    predicted_class_id = torch.argmax(logits).item()
-    return predicted_class_id
+    probabilities = torch.softmax(logits, dim=-1)
+    predicted_class_id = torch.argmax(probabilities).item()
+
+    # Add confidence calculation
+    confidence = probabilities[0][predicted_class_id].item()
+
+    return predicted_class_id, confidence  # Now returns both the predicted class ID and confidence
+
 
 # Route for the home page
 @app.route('/')
@@ -47,10 +54,10 @@ def submit():
         return jsonify({'status': 'failure', 'message': 'Empty security requirement'}), 400
     
     # Classify the text
-    classification = classify_text(text)
+    classification, confidence = classify_text(text)  # Unpack the classification and confidence
     logging.debug(f"Classifying text: {text}")
-    
-    
+    logging.debug(f"Classification result: {classification}, Confidence: {confidence}")
+
     # Ensure correct category is being passed
     if classification < 0 or classification >= len(categories):
         logging.error("Invalid classification specified.")
@@ -106,6 +113,18 @@ def generate():
 @app.route('/deployment')
 def deployment():
     return render_template('deployment.html')
+
+# Flask route for chatbot integration
+@app.route('/chatbot', methods=['POST'])
+def chatbot():
+    data = request.get_json()
+    user_message = data.get('message', '')
+
+    # Get response based on user message with constraint to configurations
+    bot_response = get_policy_recommendation(user_message)
+
+    return jsonify({'response': bot_response})
+
 
 # Route for saving deployment configurations
 @app.route('/save_deployment', methods=['POST'])
