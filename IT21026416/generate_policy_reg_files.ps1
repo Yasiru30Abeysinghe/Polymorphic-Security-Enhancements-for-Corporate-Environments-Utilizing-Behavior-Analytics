@@ -34,21 +34,49 @@ foreach ($browser in $policies.PSObject.Properties) {
         $policyName = $policy.Name
         $policyValue = $policy.Value
 
-        # Handle policies expecting DWORD (integer) values
-        if ($policyName -in @('DefaultGeolocationSetting', 'VideoCaptureAllowed', 'DefaultSensorsSetting', 'DefaultNotificationsSetting', 'DefaultJavaScriptSetting', 'DefaultImagesSetting', 'DefaultPopupsSetting', 'DefaultWebUsbGuardSetting')) {
+        # Handle the BrowsingDataLifetime policy (dictionary format with specific structure)
+        # Apply the BrowsingDataLifetime policy as a REG_SZ JSON string under the correct subkey with numeric value names
+        if ($policyName -eq 'BrowsingDataLifetime') {
             try {
-                # Convert the value to an integer if it's not already a number
                 if ($policyValue -is [array]) {
-                    $intValue = [int]$policyValue[0]
+                    # Ensure the 'BrowsingDataLifetime' registry path exists
+                    $browsingDataLifetimePath = "$registryPath\BrowsingDataLifetime"
+                    if (-not (Test-Path "Registry::$browsingDataLifetimePath")) {
+                        New-Item -Path "Registry::$browsingDataLifetimePath" -Force | Out-Null
+                        Write-Host "$($browserName): Created registry path at $browsingDataLifetimePath"
+                    }
+
+                    # Apply each entry with a numbered key
+                    for ($i = 0; $i -lt $policyValue.Count; $i++) {
+                        $entry = $policyValue[$i]
+                        if (-not $entry.data_types -or -not $entry.time_to_live_in_hours) {
+                            Write-Error "$($browserName): BrowsingDataLifetime entry is missing necessary fields."
+                            continue
+                        }
+
+                        # Convert the entry to a JSON string
+                        $jsonString = $entry | ConvertTo-Json -Compress
+
+                        # Assign a numeric key starting from 1
+                        $keyName = ($i + 1).ToString()
+
+                        # Apply the policy as a REG_SZ string with the numeric key
+                        Set-ItemProperty -Path "Registry::$browsingDataLifetimePath" -Name $keyName -Value $jsonString -Type String -Force
+                        Write-Host "$($browserName): BrowsingDataLifetime set for $($entry.data_types) under key $keyName"
+                    }
                 } else {
-                    $intValue = [int]$policyValue
+                    Write-Error "$($browserName): BrowsingDataLifetime format is invalid."
                 }
-                Set-ItemProperty -Path "Registry::$registryPath" -Name $policyName -Value $intValue -Type DWord -Force
-                Write-Host "$($browserName): $($policyName) set to $intValue"
             } catch {
-                Write-Error "$($browserName): Failed to apply $($policyName) to $registryPath due to type conversion error."
+                Write-Error "$($browserName): Failed to apply BrowsingDataLifetime policy. Error: $_"
             }
         }
+
+
+
+
+
+
         # Handle ExtensionInstallAllowlist and ExtensionInstallBlocklist (arrays)
         elseif ($policyName -in @('ExtensionInstallAllowlist', 'ExtensionInstallBlocklist')) {
             try {
@@ -98,22 +126,18 @@ foreach ($browser in $policies.PSObject.Properties) {
             }
         }
         else {
-            # Apply other policies at the general registry path
+            # Handle policies expecting DWORD (integer) values
             try {
-                # Skip policies with array values that shouldn't be converted to UInt32
                 if ($policyValue -is [array]) {
                     Write-Error "$($browserName): $($policyName) has an invalid format and cannot be applied as a UInt32."
                     continue
                 }
 
-                # Convert to UInt32 only if the value isn't an array
-                [UInt32]$policyValue = [UInt32]$policyValue
-
-                Set-ItemProperty -Path "Registry::$registryPath" -Name $policyName -Value $policyValue -Type DWord -Force
-                Write-Host "$($browserName): $($policyName) applied to $registryPath"
-            }
-            catch {
-                Write-Error "$($browserName): Failed to apply $($policyName) to $registryPath"
+                $intValue = [int]$policyValue
+                Set-ItemProperty -Path "Registry::$registryPath" -Name $policyName -Value $intValue -Type DWord -Force
+                Write-Host "$($browserName): $($policyName) set to $intValue"
+            } catch {
+                Write-Error "$($browserName): Failed to apply $($policyName) to $registryPath due to type conversion error."
             }
         }
     }
