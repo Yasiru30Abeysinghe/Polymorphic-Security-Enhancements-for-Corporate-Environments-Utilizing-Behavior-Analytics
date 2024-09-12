@@ -290,11 +290,13 @@
             <input type="radio" id="autofill_restrict" name="Autofill" value="restrict"> Restrict
             <input type="radio" id="autofill_not_configured" name="Autofill" value="not_configured" checked> Not Configured
             <br>
+            <!--
             <label for="file_uploads">File upload to webpages:</label>
             <input type="radio" id="file_uploads_allow" name="FileUploads" value="allow"> Allow
             <input type="radio" id="file_uploads_restrict" name="FileUploads" value="restrict"> Restrict
             <input type="radio" id="file_uploads_not_configured" name="FileUploads" value="not_configured" checked> Not Configured
-            <br>
+            <br>-->
+
             <label for="capture_screenshots">Capture screenshots:</label>
             <input type="radio" id="capture_screenshots_allow" name="CaptureScreenshots" value="allow"> Allow
             <input type="radio" id="capture_screenshots_restrict" name="CaptureScreenshots" value="restrict"> Restrict
@@ -358,7 +360,11 @@
             <iframe src="{{ url_for('static', filename='blockdown.html') }}" frameborder="0" id="blockdownIframe"></iframe>
 
             <br>
-            <label>Configure Browsing Data Lifetime:- </label>
+            <label>Configure Browsing Data Lifetime:- 
+                <span class="help-icon">(?)<span class="help-text">allows admins to configure (per data-type) when data is deleted by the browser. This is useful for customers that work with sensitive customer data.
+                </span>
+            </label>
+
             <label for="data_type">Select Data Type:</label>
             <select name="BrowsingDataLifetime[data_type]" id="data_type" required>
                 <option value="browsing_history">Browsing History</option>
@@ -389,6 +395,36 @@
    
         {% endif %} 
         -->
+        <!-- Floating Chatbot Icon -->
+<div id="chatbotIcon" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+    <img src="https://cdn-icons-png.flaticon.com/512/893/893257.png" alt="Chatbot Icon" width="50" height="50" style="cursor: pointer;">
+</div>
+
+<!-- Chatbot Window -->
+<div id="chatbotWindow" style="position: fixed; bottom: 80px; right: 20px; z-index: 1001; width: 300px; height: 400px; display: none; border: 1px solid #ccc; background: #fff; border-radius: 8px;">
+    <div style="background-color: #007bff; color: white; padding: 10px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between;">
+        <span>Chatbot</span>
+        <button id="closeChatbot" style="background: none; border: none; color: white; cursor: pointer;">&times;</button>
+    </div>
+<!-- Load chatbot.html inside iframe -->
+<iframe src="{{ url_for('static', filename='chatbot.html') }}" frameborder="0" id="chatbotIframe" style="width: 100%; height: 100%;"></iframe>
+</div>
+
+<script>
+    // Show/hide chatbot window when the icon is clicked
+    const chatbotIcon = document.getElementById('chatbotIcon');
+    const chatbotWindow = document.getElementById('chatbotWindow');
+    const closeChatbot = document.getElementById('closeChatbot');
+
+    chatbotIcon.addEventListener('click', function() {
+        chatbotWindow.style.display = 'block';
+    });
+
+    closeChatbot.addEventListener('click', function() {
+        chatbotWindow.style.display = 'none';
+    });
+</script>
+
           
         <script>
             // Listen for messages from the iframe (blockdown.html)
