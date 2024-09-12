@@ -499,6 +499,7 @@ test_samples = [
     "Whitelist only critical extensions.",
     "Allow Camera Access.",
     "Stop third-party websites from injecting scripts.",
+    "Whitelist extensions",
 
     # Data Leakage Policy (Includes Download Filter Policy) - 20 samples
     "Print webpage",
