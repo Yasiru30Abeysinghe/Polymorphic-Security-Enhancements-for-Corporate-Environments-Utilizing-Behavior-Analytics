@@ -1,141 +1,93 @@
-from flask import Flask, request, render_template, jsonify, redirect, url_for
-import torch
-from transformers import BertTokenizer, BertForSequenceClassification
-import os
-import json
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from NLPEngine import classify_text_with_context  # Import the enhanced classify_text function
+import openai
 import logging
-from chatbot import get_policy_recommendation  # Import the chatbot functionality
+import os
 
-
-
-# Load the trained model and tokenizer
-model_path = './saved_models'
-model = BertForSequenceClassification.from_pretrained(model_path,ignore_mismatched_sizes=True)
-tokenizer = BertTokenizer.from_pretrained(model_path)
-
-# Initialize Flask app
 app = Flask(__name__)
+CORS(app)  # Enable CORS to allow cross-origin requests from frontend
 
-# Define categories
-categories = [
-    'Threat Prevention Policy',
-    'Data Leakage Policy',
-]
+# Set up logging to a file
+logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+# Load OpenAI API key
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
-def classify_text(text):
-    inputs = tokenizer(text, return_tensors='pt', truncation=True, padding=True)
-    outputs = model(**inputs)
-    logits = outputs.logits
-    probabilities = torch.softmax(logits, dim=-1)
-    predicted_class_id = torch.argmax(probabilities).item()
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    try:
+        # Get data from request
+        data = request.json
 
-    # Add confidence calculation
-    confidence = probabilities[0][predicted_class_id].item()
+        # If inputText is missing or request is malformed
+        if not data or "inputText" not in data:
+            return jsonify({"error": "Invalid request: 'inputText' not provided"}), 400
 
-    return predicted_class_id, confidence  # Now returns both the predicted class ID and confidence
+        # Process input_text using the enhanced NLP Engine
+        input_text = data.get("inputText")
+        logging.info(f"Received input text: {input_text}")  # Log received input
+        classification_result = classify_text_with_context(input_text)
+
+        # Prepare the response with classification and justification
+        response = {
+            "message": f"Analyzed: {input_text}",
+            "label": classification_result['label'],
+            "justification": classification_result['justification'],
+            "suggested_policies": classification_result.get('suggested_policies', [])
+        }
+
+        return jsonify(response), 200
+
+    except Exception as e:
+        logging.error(f"Error in analyze endpoint: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
-# Route for the home page
-@app.route('/')
-def home():
-    return render_template('index.html')
+@app.route('/openai', methods=['POST'])
+def get_openai_explanation():
+    try:
+        data = request.json
+        input_text = data.get("inputText")
 
-@app.route('/submit', methods=['POST'])
-def submit():
-    text = request.form['security_requirement']
-    logging.info(f"Received security requirement: {text}")
+        # Use OpenAI API to get explanation
+        explanation = openai.Completion.create(
+            engine="davinci",
+            prompt=f"Explain why the following security policy is recommended: {input_text}",
+            max_tokens=150
+        )
 
-    # Check if the input text is empty
-    if not text.strip():
-        logging.error("Empty security requirement received.")
-        return jsonify({'status': 'failure', 'message': 'Empty security requirement'}), 400
-    
-    # Classify the text
-    classification, confidence = classify_text(text)  # Unpack the classification and confidence
-    logging.debug(f"Classifying text: {text}")
-    logging.debug(f"Classification result: {classification}, Confidence: {confidence}")
+        return jsonify({"explanation": explanation.choices[0].text.strip()})
 
-    # Ensure correct category is being passed
-    if classification < 0 or classification >= len(categories):
-        logging.error("Invalid classification specified.")
-        return jsonify({'status': 'failure', 'message': 'Invalid classification specified'}), 400
-    
-    category = categories[classification]
-    logging.info(f"Classification result: {classification} corresponding to category: {category}")
-    
-    return render_template('policy_form.html', classification=classification, category=category)
+    except Exception as e:
+        logging.error(f"Error in OpenAI explanation endpoint: {e}")
+        return jsonify({"error": str(e)}), 500
 
-# Route for generating and applying policies
 
 @app.route('/generate', methods=['POST'])
 def generate():
     try:
-        classification = int(request.form.get('classification', -1))
-        logging.debug(f"Received classification value: {classification}")
-        if classification == -1 or classification >= len(categories):
-            logging.error("Invalid classification specified.")
+        # Get data from request
+        data = request.json
+
+        # Extract classification and specifications from the form data
+        classification = data.get('classification', None)
+        if not classification or classification not in ['Threat Prevention', 'Data Leakage']:  # Ensure classification matches expected values
             return jsonify({'status': 'failure', 'message': 'Invalid classification specified'}), 400
 
-        # Capture the "Block all downloads" policy and its conditions
-        block_downloads = request.form.get('BlockDownloads', 'no')
-        condition = request.form.get('Conditions', 'None')
-        condition_value = request.form.get('Values', '')
+        # Process policies based on classification and other form data
+        specifications = {key: value for key, value in data.items() if key != 'classification'}
 
-        specifications = {key: request.form.get(key, 'not_configured') for key in request.form.keys() if key not in ['classification', 'BlockDownloads', 'Conditions', 'Values']}
-        
-        # Add the BlockDownloads and associated conditions to specifications
-        if block_downloads == 'yes':
-            specifications['BlockDownloads'] = {
-                'enabled': True,
-                'condition': condition,
-                'value': condition_value
-            }
-        else:
-            specifications['BlockDownloads'] = {
-                'enabled': False
-            }
-
-        logging.info(f"Specifications to be processed: {specifications}")
-
+        # Pass the specifications to the policy generation logic
         from policy_generator import generate_policy_files
         policy_file_path = generate_policy_files(specifications)
-        
+
         return jsonify({'status': 'success', 'policy_file_path': policy_file_path})
 
     except Exception as e:
-        logging.error(f"Error generating policies: {e}")
         return jsonify({'status': 'failure', 'message': f'Error generating policies: {str(e)}'}), 500
 
-# Route for deployment pages
-@app.route('/deployment')
-def deployment():
-    return render_template('deployment.html')
-
-# Flask route for chatbot integration
-@app.route('/chatbot', methods=['POST'])
-def chatbot():
-    data = request.get_json()
-    user_message = data.get('message', '')
-
-    # Get response based on user message with constraint to configurations
-    bot_response = get_policy_recommendation(user_message)
-
-    return jsonify({'response': bot_response})
-
-
-# Route for saving deployment configurations
-@app.route('/save_deployment', methods=['POST'])
-def save_deployment():
-    vm_ip = request.form.get('vm_ip')
-    username = request.form.get('username')
-    password = request.form.get('password')
-    data = {'vms': [{'ip': vm_ip, 'username': username, 'password': password}]}
-    with open('deployment.json', 'w') as f:
-        json.dump(data, f)
-    return redirect(url_for('deployment'))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    # To run the app locally
+    app.run(debug=True)
