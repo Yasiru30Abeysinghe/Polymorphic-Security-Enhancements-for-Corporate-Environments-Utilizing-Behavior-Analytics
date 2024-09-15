@@ -1,55 +1,112 @@
-from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
+from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments, EarlyStoppingCallback
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import numpy as np
 from nltk.corpus import wordnet
-import random
-import time
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+import torch
+import torch.nn as nn
 import os
 import gc
-import torch
-from transformers import BertForSequenceClassification, Trainer, TrainingArguments
-import torch.nn as nn
-from sklearn.utils import class_weight
-import numpy as np
+import random
+import openai  # To integrate OpenAI GPT-4 for justifications
+from dotenv import load_dotenv
+from sklearn.utils.class_weight import compute_class_weight
 
-def synonym_replacement(text): 
+# Global model, tokenizer, and OpenAI API key variables
+model = None
+tokenizer = None
+
+# Load the environment variables from the .env file
+load_dotenv(dotenv_path=r'D:\NLP\NLPFinal\Main\nlp-browser-security\.env')
+
+# Retrieve the OpenAI API key
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# Test if the key is loaded correctly
+print(f"OpenAI API Key: {openai.api_key}")
+
+def load_model():
+    global model, tokenizer
+    model_name = 'bert-base-uncased'
+
+    # Check if model and tokenizer are already loaded
+    if model is None:
+        print("Loading BERT model...")
+        try:
+            # Load pre-trained BERT model
+            model = BertForSequenceClassification.from_pretrained(model_name, num_labels=3)
+            
+            # Apply dropout configuration
+            model.config.hidden_dropout_prob = 0.2  # Apply dropout to the BERT model
+            model.config.attention_probs_dropout_prob = 0.2
+            print("Model loaded and dropout configuration applied.")
+        
+        except Exception as e:
+            print(f"Error loading BERT model: {e}")
+    
+    else:
+        print("BERT model is already loaded.")
+
+    if tokenizer is None:
+        print("Loading BERT tokenizer...")
+        try:
+            # Load the tokenizer
+            tokenizer = BertTokenizer.from_pretrained(model_name)
+            print("Tokenizer loaded successfully.")
+        
+        except Exception as e:
+            print(f"Error loading BERT tokenizer: {e}")
+    
+    else:
+        print("BERT tokenizer is already loaded.")
+
+
+# Data augmentation methods (for training purposes)
+def synonym_replacement(text):
     words = text.split()
     new_words = words.copy()
     random_word_list = list(set([word for word in words if wordnet.synsets(word)]))
     random.shuffle(random_word_list)
-    replaced_words = set()  # Track already replaced words
+    replaced_words = set()
     num_replacements = max(1, int(0.1 * len(words)))
 
     for random_word in random_word_list:
         if random_word in replaced_words:
-            continue  # Skip already replaced words
+            continue
 
         synonyms = wordnet.synsets(random_word)
         if synonyms:
-            synonym = synonyms[0].lemmas()[0].name()  # Get first synonym
-            # Avoid multiple replacements of the same word
+            synonym = synonyms[0].lemmas()[0].name()
             new_words = [synonym if word == random_word else word for word in new_words]
-            replaced_words.add(random_word)  # Mark this word as replaced
+            replaced_words.add(random_word)
         if len(replaced_words) >= num_replacements:
-            break  # Stop once the required number of replacements is reached
+            break
     return ' '.join(new_words)
 
 
-# Function for back translation (dummy function, you need an API or library for actual implementation)
 def back_translation(text):
-    # Translate to another language and back to original language
-    # This is a placeholder. You can use services like Google Translate API for actual implementation.
+    # Dummy function for back translation (replace with actual implementation)
     return text
+
+def augment_data(texts, labels):
+    augmented_texts = []
+    augmented_labels = []
+
+    for text, label in zip(texts, labels):
+        augmented_texts.append(synonym_replacement(text))
+        augmented_texts.append(back_translation(text))
+        augmented_labels.extend([label] * 2)  # Duplicate the label for each augmentation
+
+    return augmented_texts, augmented_labels
+
 
 def random_insertion(text):
     words = text.split()
     new_words = words.copy()
     random_word_list = list(set([word for word in words if wordnet.synsets(word)]))
 
-    # Check if random_word_list is empty before proceeding
     if not random_word_list:
-        return text  # Return original text if no words with synonyms are found
+        return text
 
     num_insertions = max(1, int(0.1 * len(words)))
     
@@ -58,299 +115,29 @@ def random_insertion(text):
         synonyms = wordnet.synsets(random_word)
         if synonyms:
             synonym = synonyms[0].lemmas()[0].name()
-            insert_position = random.randint(0, len(new_words))  # Insert at random position
+            insert_position = random.randint(0, len(new_words))
             new_words.insert(insert_position, synonym)
     return ' '.join(new_words)
 
 
-# Original text samples and labels
-texts = [
-    # Threat Prevention Policy (Includes Browser Extension Policy) - 10 samples
-    #Threat Prevention Policy SafeBrowsingProtectionLevel
-    "Enable Safe browsing protection level to protect against dangers", #SafeBrowsingProtectionLevel
-    "Block websites that display excessive ads.", #BlockExcessiveAds
-    "Block excessive ads",
-    "block ads",
-    "block web abs",
-    "cert errors",
-    "allow cam",
-    "Override certificate errors for trusted websites.", #SSLCertificateProtection
-    "Block third-party websites that inject code.", #BlockInjectedCode
-    "Block permissions.", #SetPermissions
-    "Whitelist only essential extensions.", #WhitelistExtensions
-    "Blacklist suspicious extensions.", #BlacklistExtensions
-    "Allow Camera Permission", #camera
-    "Allow Camera", #camera
-    "Block Camera permission", #camera
-    "Block Camera", #camera
-    "Set Permissions",#camera
-    "Set location permission", #geolocation
-    "Allow Motion Sensors", #MotionSensor
-    "Block Motion Sensors", #MotionSensor
-    "Allow notification", #Notifications
-    "Block notifications", #Notifications
-    "Block Javascript", #JavaScript
-    "Allow javascript", #Notifications
-    "Block pop ups", 
-    "Allow pop ups",
-    "Allow web usb access",
-    "block web usb access"
-    "Enable Safe browsing strictly protection level to protect online against dangers.",
-    "Block suspicious websites that display excessive ads.",
-    "Whitelist only essential extensions for browsing.",
-    "Allow device Camera Permission.",
-    "Block unauthorized third-party websites that inject code.", 
-    "Activate Safe browsing protection level to shield from threats."
-    "Prevent websites that show too many ads.",
-    "Whitelist only critical extensions.",
-    "Allow Camera Access.",
-    "Stop third-party websites from injecting scripts.",
 
-    # Data Leakage Policy (Includes Download Filter Policy) - 20 samples
-    "Print webpage",
-    "browser sync",
-    "Save browser history",
-    "Autofill",
-    "screenshots",
-    "Remember passwords",
-    "Site per process",
-    "search suggest",
-    "suggesting search",
-    "Metrics reporting",
-    "download location",
-    "history deletion",
-    "network prediction",
-    "third party cookies",
-    "restrict downloads",
-    "Permit downloads",
-    "Block downloads",
-    "browsing data lifetime",
-    "set browsing data lifetime",
-    "Restrict printing of web pages.",
-    "Disable browser sync for personal data.",
-    "Prevent saving browser history.",
-    "Disallow autofill of forms in the browser.",
-    "Block file uploads to external websites.",
-    "Disable screenshots in the browser.",
-    "Prevent the browser from remembering passwords.",
-    "Restrict site per process settings.",
-    "Disable search suggestions in the browser.",
-    "Block metrics reporting to Google.",
-    "Prompt for download location every time.",
-    "Prevent browser history deletion.",
-    "Disable background processing in the browser.",
-    "Disable network predictions.",
-    "Block third-party cookies.",
-    "Restrict downloads from specific web domains.",
-    "Block all downloads from social media sites.",
-    "Allow file downloads only from trusted sources.",
-    "Block downloads of executable files.",
-    "Permit downloads of PDF and TXT files.",
-    "Configure the browser to delete browsing history older than 7 days.",
-    "Set the browser to automatically clear cookies and site data after 24 hours.",
-    "Ensure cached images and files are removed after one week to free up space.",
-    "Remove saved passwords after 30 days to enhance security.",
-    "Automatically delete autofill data that is more than 48 hours old.",  # <-- Comma added here
-    "Purge site settings and hosted app data every 72 hours.",
-    "Implement a policy to delete all browsing data every 12 hours to comply with company security standards.",
-    "Set the browser to clear download history daily to maintain user privacy.",
-    "Ensure that cookies and other site data are deleted every 6 hours to prevent unauthorized tracking.",
-    "Schedule the browser to delete all browsing data older than 1 hour after every 15 minutes of activity.",
-    "Enable a policy that clears cached images and files after 2 days while keeping cookies for 48 hours.",
-    "Configure the browser to delete specific types of data, like browsing history and cookies, after 12 hours.",
-    "Turn off browser sync for personal information.",
-    "Stop the browser from saving history.",
-    "Forbid file uploads to external platforms.",
-    "Prohibit form autofill in the browser.",
-    "Ask for download location every time.",
-    "Disable browser completely sync for any personal data.",
-    "Prevent the browser from saving any history.",
-    "Block all file uploads to unknown external websites.",
-    "Disallow automatic autofill of forms on any website in the browser.",
-    "Prompt user for download location each time.",
+def ensemble_classification(models, input_text):
+    votes = []
+    for model in models:
+        result = classify_text_with_context(input_text)
+        votes.append(result["label"])
 
-    "Restrict users from saving browser history.",
-    "Disable the browser's ability to sync personal information.",
-    "Do not allow form autofill to function.",
-    "Stop saving passwords in the browser to protect sensitive information.",
-    "Ensure that browser suggestions are disabled for privacy reasons.",
-    "Block all metrics reporting to third-party services.",
-    "Restrict file downloads from untrusted sources.",
-    "Limit printing of sensitive web content.",
-    "Automatically clear browser cookies after 6 hours.",
-    "Disallow screenshots to prevent information capture."
-    
+    # Majority vote for final prediction
+    final_prediction = max(set(votes), key=votes.count)
+    return final_prediction
 
 
-    "Block third party cookies", #this is DLP now
-    "block websites",# this is TPP now
-    "allow websites", ## this is TPP now
-    "prevent websites"# this is TPP now
-] 
-# Additional text samples to address misclassifications
-additional_texts = [
-    "Block access to sites", # this is TPP now
-    "Allow access only to educational websites.",  # this is TPP now
-    "Enable filtering of adult content.",  # this is TPP now
-    "Disable automatic form filling.",  # Data Leakage Policy
-    "Allow only secure connections for browsing."  # Data Leakage Policy
-]
-
-# Correct the labels for TPP (0) and DLP (1)
-labels = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0,0,0, 0, 0, # TPP samples
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 # DLP samples
-]
-
-
-# Corresponding labels
-additional_labels = [
-    0,  # Threat Prevention Policy
-    0,  # Threat Prevention Policy
-  # Data Leakage Policy
-      # Data Leakage Policy
-    1,
-    1,
-    1,  # Data Leakage Policy
-]
-# Corrected labels (Adding the missing two labels for Data Leakage Policy)
-
-# Update the lengths of texts and labels
-print(f"Length of texts: {len(texts)}")
-print(f"Length of labels: {len(labels)}")
-
-# Combine original and additional texts and labels
-texts += additional_texts
-labels += additional_labels
-
-# Debugging step to print the lengths
-print(f"Length of texts after combining: {len(texts)}")
-print(f"Length of labels after combining: {len(labels)}")
-
-# Data augmentation
-augmented_texts = []
-augmented_labels = []
-
-for text, label in zip(texts + additional_texts, labels + additional_labels):
-    augmented_texts.append(synonym_replacement(text))
-    augmented_texts.append(random_insertion(text))
-    augmented_texts.append(back_translation(text))
-    
-    augmented_labels.extend([label] * 3)  # Duplicate label for each augmentation
-
-# Combine original and augmented data
-all_texts = texts + additional_texts + augmented_texts
-all_labels = labels + additional_labels + augmented_labels
-
-# Debugging step: Print lengths of combined lists
-print(f"Length of all_texts after augmentation: {len(all_texts)}")
-print(f"Length of all_labels after augmentation: {len(all_labels)}")
-
-# Ensure the lengths match
-assert len(all_texts) == len(all_labels), "Lengths of texts and labels do not match!"
-
-# Split the data into training and validation sets
-train_texts, val_texts, train_labels, val_labels = train_test_split(all_texts, all_labels, test_size=0.2, random_state=42)
-
-# Check class distribution in training set
-unique, counts = np.unique(train_labels, return_counts=True)
-print(f"Class distribution in training set: {dict(zip(unique, counts))}")
-
-# Load the BERT tokenizer
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-
-# Tokenize the texts
-train_encodings = tokenizer(train_texts, truncation=True, padding=True)
-val_encodings = tokenizer(val_texts, truncation=True, padding=True)
-
-# Create a PyTorch dataset class
-class CustomDataset(torch.utils.data.Dataset):
-    def __init__(self, encodings, labels):
-        self.encodings = encodings
-        self.labels = labels
-
-    def __getitem__(self, idx):
-        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
-        item['labels'] = torch.tensor(self.labels[idx])
-        return item
-
-    def __len__(self):
-        return len(self.labels)
-
-# Create training and validation datasets
-train_dataset = CustomDataset(train_encodings, train_labels)
-val_dataset = CustomDataset(val_encodings, val_labels)
-
-
-
-
-# Define class weights (adjust based on your class distribution)
-#class_weights = torch.tensor([0.5, 2.0], dtype=torch.float32).to('cuda' if torch.cuda.is_available() else 'cpu')
-# Assuming train_labels is a list of your labels
-label_set = list(set(train_labels))  # Get the unique labels
-total_samples = len(train_labels)  # Total number of samples
-label_counts = {label: 0 for label in label_set}  # Initialize counts for each label
-
-# Count occurrences of each label
-for label in train_labels:
-    label_counts[label] += 1
-
-# Calculate class weights as: total_samples / (num_classes * count_per_class)
-class_weights = {label: total_samples / (len(label_set) * count) for label, count in label_counts.items()}
-print("Class Weights:", class_weights)
-
-
-
-# Custom Trainer class to apply class weights
-class WeightedTrainer(Trainer):
-    def compute_loss(self, model, inputs, return_outputs=False):
-        labels = inputs.get("labels")
-        outputs = model(**inputs)
-        logits = outputs.get("logits")
-        
-        # Use weighted cross-entropy loss
-        loss_fct = nn.CrossEntropyLoss(weight=class_weights)
-        loss = loss_fct(logits, labels)
-        
-        return (loss, outputs) if return_outputs else loss
-
-# Update TrainingArguments without class_weights
-# Re-train with adjusted weights and epochs
-
-
-
-training_args = TrainingArguments(
-    output_dir='./results',
-    num_train_epochs=7,
-    per_device_train_batch_size=16,
-    per_device_eval_batch_size=16,
-    warmup_steps=100,
-    weight_decay=0.02,  # Slightly higher weight decay
-    logging_dir='./logs',
-    logging_steps=10,
-    evaluation_strategy="epoch",  # Use 'epoch' for both evaluation and saving
-    save_strategy="epoch",        # Ensure the saving strategy matches
-    load_best_model_at_end=True,  # Early stopping related
-    metric_for_best_model="f1",   # You can change this metric
-    greater_is_better=True,       # Higher F1 is better
-    save_total_limit=2,           # Limit the number of saved models
-    learning_rate=1e-4  # Lower learning rate for better fine-tuning
-
-)
-
-
-# Define the model name, e.g., 'bert-base-uncased' or a custom model
-model_name = 'bert-base-uncased'
-
-# Load pre-trained model and tokenizer
-model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
-tokenizer = BertTokenizer.from_pretrained(model_name)
-
-
-# Function to compute evaluation metrics
+# Function to compute metrics for evaluation
 def compute_metrics(p):
     preds = np.argmax(p.predictions, axis=1)
-    precision, recall, f1, _ = precision_recall_fscore_support(p.label_ids, preds, average='weighted')
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        p.label_ids, preds, average='weighted', zero_division=1
+    )
     acc = accuracy_score(p.label_ids, preds)
     return {
         'accuracy': acc,
@@ -359,371 +146,309 @@ def compute_metrics(p):
         'recall': recall
     }
 
-# Create a Trainer instance with evaluation metrics
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=train_dataset,
-    eval_dataset=val_dataset,
-    compute_metrics=compute_metrics
-)
 
-# Re-train and test with better data handling for WFP cases
-start_time = time.time()
-trainer.train()
-end_time = time.time()
-print(f"Training time: {end_time - start_time:.2f} seconds")
-
-
-
-# Manually clear any potential GPU or memory allocations
+# Function to clear model cache
 def clear_model_cache():
-    torch.cuda.empty_cache()  # Clears GPU cache if using CUDA
-    gc.collect()  # Forces Python garbage collection to release memory
+    torch.cuda.empty_cache()
+    gc.collect()
 
-# Before saving, ensure the model is not being mapped to memory
-clear_model_cache()
-# Save the fine-tuned model with torch.save as a fallback
-try:
-    model.save_pretrained('./saved_models', safe_serialization=False)
-except Exception as e:
-    print(f"Error during save_pretrained: {e}")
-    # Fallback method
-    torch.save(model.state_dict(), './saved_models/model_state.pth')
 
-# Disable safetensors serialization and use default torch save
-
-model.save_pretrained('./saved_models', safe_serialization=False)
-
+# Function to save the model and tokenizer
 def save_model_and_tokenizer(model, tokenizer, save_dir='./saved_models'):
-    # Ensure the directory exists
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     
-    # Try to save the model with safe serialization disabled
     try:
-        model.save_pretrained(save_dir, safe_serialization=False)  # Turn off safe serialization
+        model.save_pretrained(save_dir, safe_serialization=False)
         tokenizer.save_pretrained(save_dir)
     except Exception as e:
         print(f"Error while saving using save_pretrained: {e}")
-        # Fallback to torch.save if safetensors fails
         torch.save(model.state_dict(), os.path.join(save_dir, 'model_state.pth'))
         print("Model saved using torch.save as a fallback.")
 
-# Call the save function
-save_model_and_tokenizer(model, tokenizer)
+
+texts = [
+    # Threat Prevention Policy (TPP)
+    "How do I ensure secure browsing for users?", # TPP
+    "What’s the best way to block risky websites?", # TPP
+    "I need to protect the browser against malware.", # TPP
+    "Is there a way to disable extensions that could cause threats?", # TPP
+    "How do I allow only company-approved browser plugins?", # TPP
+    "Ensure users don’t access untrusted sites.", # TPP
+    "I want to block websites with excessive ads.", # TPP
+    "Can we prevent unauthorized code injection through the browser?", # TPP
+    "How do we restrict browser permissions for external content?", # TPP
+    "What’s the safest way to handle browser certificates?", # TPP
+    "I need to block third-party website scripts.", # TPP
+    "Is there a way to enforce strict security settings in the browser?", # TPP
+    "Allow only necessary permissions on the browser.", # TPP
+    "Can we disable notifications from untrusted sites?", # TPP
+    "How do we control browser extension installation?", # TPP
+        # Threat Prevention Policy (TPP) samples
+    "Block all attempts to use the browser camera", # TPP
+    "Restrict access to camera in browser", # TPP
+    "Disable any requests for camera access", # TPP
+    "Prevent any site from accessing camera or microphone", # TPP
+    "Block external websites from accessing system camera", # TPP
+    "Enable strict security policy for camera access", # TPP
+    
+    # Data Leakage Policy (DLP)
+    "How can we prevent sensitive data from being printed?", # DLP
+    "Can we restrict file downloads to company-approved domains?", # DLP
+    "What’s the policy to prevent browser sync of personal information?", # DLP
+    "I need to ensure browsing history isn’t saved.", # DLP
+    "How do I prevent users from downloading files from unauthorized sites?", # DLP
+    "Disable browser autofill for all users.", # DLP
+    "Is there a way to block third-party cookies to protect privacy?", # DLP
+    "Ensure that all browser cookies are deleted after each session.", # DLP
+    "How do I enforce the deletion of browser history after 7 days?", # DLP
+    "We need to block users from uploading files to external websites.", # DLP
+    "How can I ensure that no screenshots are taken in the browser?", # DLP
+    "Block downloads from unapproved websites.", # DLP
+    "Can we restrict browser metrics from being reported?", # DLP
+    "Ensure that password saving is disabled.", # DLP
+    "Limit file uploads to trusted services only.", # DLP,
+        # Data Leakage Prevention (DLP) samples
+    "Disable autofill for all forms", # DLP
+    "Do not allow passwords to be saved in the browser", # DLP
+    "Restrict download access to company files", # DLP
+    "How do I disable the browser's ability to sync passwords?", # DLP
+    "Block the browser from storing browsing history", # DLP
+    "How do I prevent users from sharing confidential data on social media?",
+    "Ensure that browser data is deleted after closing the session.",
+    "Limit the ability to copy or paste sensitive information.",
+    "How do I block uploads of confidential documents?",
+    "Ensure that password fields are not auto-filled for security reasons.",
+    "Limit downloads to only company-approved files.",
+    "Restrict clipboard access for browser sessions.",
+    "Ensure no sensitive data is retained after session expiration.",
+    "How do I ensure secure browsing for users?",
+    "Block websites with risky content",
 
 
+    # Compliance Queries
+    "I need the browser to comply with the latest NIST standards.", # Compliance
+    "How do I ensure that we’re compliant with CM-1 of NIST?", # Compliance
+    "What’s the best way to handle cookies to stay compliant with GDPR?", # Compliance
+    "What settings should be enforced for HIPAA compliance in the browser?", # Compliance
+    "What’s the policy for handling PII in browsers?", # Compliance
+    "Enforce policies to minimize the risk of data leaks.", # Compliance
+    "Ensure all browser activities are compliant with ISO 27001.", # Compliance
+    "Block features that may lead to unauthorized data sharing.", # Compliance
+    "Can we ensure the browser is aligned with SOC 2 compliance?", # Compliance
+    "How do I disable features that could violate privacy regulations?" # Compliance
 
-def classify_text(text, threshold=0.8):  # Adjusted threshold to 0.5
-    inputs = tokenizer(text, return_tensors='pt', truncation=True, padding=True)
+        # Ambiguous samples that may require clarification or additional context
+    "Block websites that may track user data", # Could be TPP or DLP
+    "How do I protect browser data from being stolen?", # Uncertain (requires clarification)
+    "Prevent the use of unauthorized browser extensions", # TPP
+    "Allow only certain websites to access system files", # Could be TPP or DLP
+    "Restrict permissions on sensitive data", # Uncertain (requires clarification)
+]
+
+
+labels = [
+    # TPP (0) and DLP (1) labels
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, # TPP labels
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1,1,1,1,1,1, 1, 1, 1, 1, 1, 1, 1, 1, # DLP labels
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 1, 1, 1, 1,  # Compliance/Vague labels (could map to "Uncertain")
+    0, 1, 
+]
+print(f"Initial number of texts: {len(texts)}")
+print(f"Initial number of labels: {len(labels)}")
+
+
+# Ensure the initial assertion holds
+assert len(texts) == len(labels), "Mismatch between number of texts and labels before augmentation"
+
+
+# Augment the data
+augmented_texts, augmented_labels = augment_data(texts, labels)
+assert len(augmented_texts) == len(augmented_labels), "Mismatch after data augmentation"
+
+
+print(f"Number of texts after augmentation: {len(texts)}")
+print(f"Number of labels after augmentation: {len(labels)}")
+
+# Combine with original dataset
+train_texts = texts + augmented_texts
+train_labels = labels + augmented_labels
+
+def classify_text_with_context(input_text, threshold=0.3):  # Lowering the threshold to 0.3
+    load_model()
+    inputs = tokenizer(input_text, return_tensors='pt', truncation=True, padding=True)
     outputs = model(**inputs)
     logits = outputs.logits
     probabilities = torch.softmax(logits, dim=-1)
+
     predicted_class_id = torch.argmax(probabilities).item()
+    confidence = probabilities[0][predicted_class_id]
 
-    # Print probabilities for debugging
-    print(f"Probabilities: {probabilities}")
+    if confidence < threshold:
+        clarification_needed = f"The model's confidence is below the threshold. Can you provide more details?"
+        return {
+            "label": "Uncertain",
+            "confidence": confidence.item(),
+            "justification": clarification_needed
+        }
 
-    if probabilities[0][predicted_class_id] < threshold:
-        return "Uncertain"
+    classification_label = map_class_id_to_label(predicted_class_id)
+    print(f"Classified: {input_text} as {classification_label} with confidence {confidence}")  # Add this line
+    explanation = get_openai_justification(input_text, classification_label)
 
-    return predicted_class_id
-
-class FocalLoss(nn.Module):
-    def __init__(self, gamma=2.0, alpha=None):
-        super(FocalLoss, self).__init__()
-        self.gamma = gamma
-        self.alpha = alpha
-
-    def forward(self, logits, targets):
-        ce_loss = nn.CrossEntropyLoss()(logits, targets)
-        p_t = torch.exp(-ce_loss)
-        focal_loss = (1 - p_t) ** self.gamma * ce_loss
-        return focal_loss
-
-# In your WeightedTrainer class, replace CrossEntropyLoss with FocalLoss:
-class WeightedTrainer(Trainer):
-    def compute_loss(self, model, inputs, return_outputs=False):
-        labels = inputs.get("labels")
-        outputs = model(**inputs)
-        logits = outputs.get("logits")
-        loss_fct = FocalLoss(gamma=2.0)
-        loss = loss_fct(logits, labels)
-        return (loss, outputs) if return_outputs else loss
-
-# Convert class weights to a tensor
-class_weights_tensor = torch.tensor([class_weights[label] for label in sorted(class_weights.keys())], dtype=torch.float)
-
-# Define the loss function with class weights
-criterion = nn.CrossEntropyLoss(weight=class_weights_tensor)
+    return {
+        "label": classification_label,
+        "confidence": confidence.item(),
+        "justification": explanation
+    }
 
 
-# Test the model with new samples
-test_samples = [
-    "Enable Safe browsing protection level to protect against dangers", #SafeBrowsingProtectionLevel
-    "Block websites that display excessive ads.", #BlockExcessiveAds
-    "Block excessive ads",
-    "block ads",
-    "block web abs",
-    "cert errors",
-    "allow cam",
-    "Override certificate errors for trusted websites.", #SSLCertificateProtection
-    "Block third-party websites that inject code.", #BlockInjectedCode
-    "Block permissions.", #SetPermissions
-    "Whitelist only essential extensions.", #WhitelistExtensions
-    "Blacklist suspicious extensions.", #BlacklistExtensions
-    "Allow Camera Permission", #camera
-    "Allow Camera", #camera
-    "Block Camera permission", #camera
-    "Block Camera", #camera
-    "Set Permissions",#camera
-    "Set location permission", #geolocation
-    "Allow Motion Sensors", #MotionSensor
-    "Block Motion Sensors", #MotionSensor
-    "Allow notification", #Notifications
-    "Block notifications", #Notifications
-    "Block Javascript", #JavaScript
-    "Allow javascript", #Notifications
-    "Block pop ups", 
-    "Allow pop ups",
-    "Allow web usb access",
-    "block web usb access"
-    "Enable Safe browsing strictly protection level to protect online against dangers.",
-    "Block suspicious websites that display excessive ads.",
-    "Whitelist only essential extensions for browsing.",
-    "Allow device Camera Permission.",
-    "Block unauthorized third-party websites that inject code.", 
-    "Activate Safe browsing protection level to shield from threats."
-    "Prevent websites that show too many ads.",
-    "Whitelist only critical extensions.",
-    "Allow Camera Access.",
-    "Stop third-party websites from injecting scripts.",
-    "Whitelist extensions",
-
-    # Data Leakage Policy (Includes Download Filter Policy) - 20 samples
-    "Print webpage",
-    "browser sync",
-    "Save browser history",
-    "Autofill",
-    "screenshots",
-    "Remember passwords",
-    "Site per process",
-    "search suggest",
-    "suggesting search",
-    "Metrics reporting",
-    "download location",
-    "history deletion",
-    "network prediction",
-    "third party cookies",
-    "restrict downloads",
-    "Permit downloads",
-    "Block downloads",
-    "browsing data lifetime",
-    "set browsing data lifetime",
-    "Restrict printing of web pages.",
-    "Disable browser sync for personal data.",
-    "Prevent saving browser history.",
-    "Disallow autofill of forms in the browser.",
-    "Block file uploads to external websites.",
-    "Disable screenshots in the browser.",
-    "Prevent the browser from remembering passwords.",
-    "Restrict site per process settings.",
-    "Disable search suggestions in the browser.",
-    "Block metrics reporting to Google.",
-    "Prompt for download location every time.",
-    "Prevent browser history deletion.",
-    "Disable background processing in the browser.",
-    "Disable network predictions.",
-    "Block third-party cookies.",
-    "Restrict downloads from specific web domains.",
-    "Block all downloads from social media sites.",
-    "Allow file downloads only from trusted sources.",
-    "Block downloads of executable files.",
-    "Permit downloads of PDF and TXT files.",
-    "Configure the browser to delete browsing history older than 7 days.",
-    "Set the browser to automatically clear cookies and site data after 24 hours.",
-    "Ensure cached images and files are removed after one week to free up space.",
-    "Remove saved passwords after 30 days to enhance security.",
-    "Automatically delete autofill data that is more than 48 hours old.",  # <-- Comma added here
-    "Purge site settings and hosted app data every 72 hours.",
-    "Implement a policy to delete all browsing data every 12 hours to comply with company security standards.",
-    "Set the browser to clear download history daily to maintain user privacy.",
-    "Ensure that cookies and other site data are deleted every 6 hours to prevent unauthorized tracking.",
-    "Schedule the browser to delete all browsing data older than 1 hour after every 15 minutes of activity.",
-    "Enable a policy that clears cached images and files after 2 days while keeping cookies for 48 hours.",
-    "Configure the browser to delete specific types of data, like browsing history and cookies, after 12 hours.",
-    "Turn off browser sync for personal information.",
-    "Stop the browser from saving history.",
-    "Forbid file uploads to external platforms.",
-    "Prohibit form autofill in the browser.",
-    "Ask for download location every time.",
-    "Disable browser completely sync for any personal data.",
-    "Prevent the browser from saving any history.",
-    "Block all file uploads to unknown external websites.",
-    "Disallow automatic autofill of forms on any website in the browser.",
-    "Prompt user for download location each time.",
-    
+# Function to map class IDs to security categories
+def map_class_id_to_label(class_id):
+    class_map = {0: "Threat Prevention", 1: "Data Leakage", 2: "Uncertain"}
+    return class_map.get(class_id, "Uncertain")
 
 
-    "Block third party cookies", #this is DLP now
-    "block websites",# this is TPP now
-    "allow websites", ## this is TPP now
-    "prevent websites"# this is TPP now
+# Function to integrate OpenAI GPT-4 for generating justifications
+def get_openai_justification(input_text, classification_label):
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a cybersecurity expert. You will help non technical users."},
+                {"role": "user", "content": f"Explain why the following policy is classified under {classification_label}: {input_text}"}
+            ],
+            max_tokens=100,
+            temperature=0.7,
+        )
+        explanation = response['choices'][0]['message']['content'].strip()
+        return explanation
+    except Exception as e:
+        print(f"OpenAI API error: {e}")
+        return "Explanation could not be generated."
 
-    "Restrict users from saving browser history.",
-    "Disable the browser's ability to sync personal information.",
-    "Do not allow form autofill to function.",
-    "Stop saving passwords in the browser to protect sensitive information.",
-    "Ensure that browser suggestions are disabled for privacy reasons.",
-    "Block all metrics reporting to third-party services.",
-    "Restrict file downloads from untrusted sources.",
-    "Limit printing of sensitive web content.",
-    "Automatically clear browser cookies after 6 hours.",
-    "Disallow screenshots to prevent information capture."
-]
+print(f"Number of texts before split: {len(texts)}")
+print(f"Number of labels before split: {len(labels)}")
+assert len(texts) == len(labels), "Mismatch between texts and labels before split"
+
+def train_model():
+    print("Training the model...")
+    load_model()
+
+    train_texts, val_texts, train_labels, val_labels = train_test_split(
+        texts, labels, test_size=0.2, random_state=42
+    )
+    print(f"Train texts: {len(train_texts)}")
+    print(f"Validation texts: {len(val_texts)}")
+    print(f"Train labels: {len(train_labels)}")
+    print(f"Validation labels: {len(val_labels)}")
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    train_encodings = tokenizer(train_texts, truncation=True, padding=True)
+    val_encodings = tokenizer(val_texts, truncation=True, padding=True)
+
+    class CustomDataset(torch.utils.data.Dataset):
+        def __init__(self, encodings, labels):
+            self.encodings = encodings
+            self.labels = labels
+
+        def __getitem__(self, idx):
+            item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
+            item['labels'] = torch.tensor(self.labels[idx])
+            return item
+
+        def __len__(self):
+            return len(self.labels)
+
+    train_dataset = CustomDataset(train_encodings, train_labels)
+    val_dataset = CustomDataset(val_encodings, val_labels)
+
+    # Define the training arguments
+    training_args = TrainingArguments(
+        output_dir='./results',
+        num_train_epochs=20,  # More epochs may help fine-tune the model better
+        per_device_train_batch_size=64,  # Increase batch size for broader data exposure
+        per_device_eval_batch_size=64,
+        warmup_steps=100,
+        weight_decay=0.01,
+        learning_rate=5e-6,  # Lower learning rate for more fine-tuning # to 
+        logging_dir='./logs',
+        logging_steps=50,  # Log every 50 steps
+        save_steps=500,  # Save checkpoint every 500 steps
+        evaluation_strategy="epoch",
+        save_strategy="epoch",
+        load_best_model_at_end=True,
+        metric_for_best_model="f1",
+        greater_is_better=True,
+        save_total_limit=2,
+        lr_scheduler_type="linear",  # Gradual learning rate decay
+    )
 
 
-categories = ["Threat Prevention Policy", "Data Leakage Policy"]
+    # Early stopping callback
+    early_stopping = EarlyStoppingCallback(
+        early_stopping_patience=5,  # Stop training if the evaluation metric doesn't improve after 3 epochs
+        early_stopping_threshold=0.01  # Consider the training to have improved if the metric changes by at least 1%
+    )
 
-expected_categories = [
-    0,  # "Enable Safe browsing protection level to protect against dangers" (TPP)
-    0,  # "Block websites that display excessive ads." (TPP)
-    0,  # "Block excessive ads" (TPP)
-    0,  # "block ads" (TPP)
-    0,  # "block web abs" (TPP)
-    0,  # "cert errors" (TPP)
-    0,  # "allow cam" (TPP)
-    0,  # "Override certificate errors for trusted websites." (TPP)
-    0,  # "Block third-party websites that inject code." (TPP)
-    0,  # "Block permissions." (TPP)
-    0,  # "Whitelist only essential extensions." (TPP)
-    0,  # "Blacklist suspicious extensions." (TPP)
-    0,  # "Allow Camera Permission" (TPP)
-    0,  # "Allow Camera" (TPP)
-    0,  # "Block Camera permission" (TPP)
-    0,  # "Block Camera" (TPP)
-    0,  # "Set Permissions" (TPP)
-    0,  # "Set location permission" (TPP)
-    0,  # "Allow Motion Sensors" (TPP)
-    0,  # "Block Motion Sensors" (TPP)
-    0,  # "Allow notification" (TPP)
-    0,  # "Block notifications" (TPP)
-    0,  # "Block Javascript" (TPP)
-    0,  # "Allow javascript" (TPP)
-    0,  # "Block pop ups" (TPP)
-    0,  # "Allow pop ups" (TPP)
-    0,  # "Allow web usb access" (TPP)
-    0,  # "block web usb access" (TPP)
-    0,  # "Enable Safe browsing strictly protection level to protect online against dangers." (TPP)
-    0,  # "Block suspicious websites that display excessive ads." (TPP)
-    0,  # "Whitelist only essential extensions for browsing." (TPP)
-    0,  # "Allow device Camera Permission." (TPP)
-    0,  # "Block unauthorized third-party websites that inject code." (TPP)
-    0,  # "Activate Safe browsing protection level to shield from threats." (TPP)
-    0,  # "Prevent websites that show too many ads." (TPP)
-    0,  # "Whitelist only critical extensions." (TPP)
-    0,  # "Allow Camera Access." (TPP)
-    0,  # "Stop third-party websites from injecting scripts." (TPP)
+    # Define the Trainer
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=val_dataset,
+        compute_metrics=compute_metrics,
+        callbacks=[early_stopping],  # Add the early stopping callback
+    )
 
-    # Data Leakage Policy (DLP)
-    1,  # "Print webpage" (DLP)
-    1,  # "browser sync" (DLP)
-    1,  # "Save browser history" (DLP)
-    1,  # "Autofill" (DLP)
-    1,  # "screenshots" (DLP)
-    1,  # "Remember passwords" (DLP)
-    1,  # "Site per process" (DLP)
-    1,  # "search suggest" (DLP)
-    1,  # "suggesting search" (DLP)
-    1,  # "Metrics reporting" (DLP)
-    1,  # "download location" (DLP)
-    1,  # "history deletion" (DLP)
-    1,  # "network prediction" (DLP)
-    1,  # "third party cookies" (DLP)
-    1,  # "restrict downloads" (DLP)
-    1,  # "Permit downloads" (DLP)
-    1,  # "Block downloads" (DLP)
-    1,  # "browsing data lifetime" (DLP)
-    1,  # "set browsing data lifetime" (DLP)
-    1,  # "Restrict printing of web pages." (DLP)
-    1,  # "Disable browser sync for personal data." (DLP)
-    1,  # "Prevent saving browser history." (DLP)
-    1,  # "Disallow autofill of forms in the browser." (DLP)
-    1,  # "Block file uploads to external websites." (DLP)
-    1,  # "Disable screenshots in the browser." (DLP)
-    1,  # "Prevent the browser from remembering passwords." (DLP)
-    1,  # "Restrict site per process settings." (DLP)
-    1,  # "Disable search suggestions in the browser." (DLP)
-    1,  # "Block metrics reporting to Google." (DLP)
-    1,  # "Prompt for download location every time." (DLP)
-    1,  # "Prevent browser history deletion." (DLP)
-    1,  # "Disable background processing in the browser." (DLP)
-    1,  # "Disable network predictions." (DLP)
-    1,  # "Block third-party cookies." (DLP)
-    1,  # "Restrict downloads from specific web domains." (DLP)
-    1,  # "Block all downloads from social media sites." (DLP)
-    1,  # "Allow file downloads only from trusted sources." (DLP)
-    1,  # "Block downloads of executable files." (DLP)
-    1,  # "Permit downloads of PDF and TXT files." (DLP)
-    1,  # "Configure the browser to delete browsing history older than 7 days." (DLP)
-    1,  # "Set the browser to automatically clear cookies and site data after 24 hours." (DLP)
-    1,  # "Ensure cached images and files are removed after one week to free up space." (DLP)
-    1,  # "Remove saved passwords after 30 days to enhance security." (DLP)
-    1,  # "Automatically delete autofill data that is more than 48 hours old." (DLP)
-    1,  # "Purge site settings and hosted app data every 72 hours." (DLP)
-    1,  # "Implement a policy to delete all browsing data every 12 hours to comply with company security standards." (DLP)
-    1,  # "Set the browser to clear download history daily to maintain user privacy." (DLP)
-    1,  # "Ensure that cookies and other site data are deleted every 6 hours to prevent unauthorized tracking." (DLP)
-    1,  # "Schedule the browser to delete all browsing data older than 1 hour after every 15 minutes of activity." (DLP)
-    1,  # "Enable a policy that clears cached images and files after 2 days while keeping cookies for 48 hours." (DLP)
-    1,  # "Configure the browser to delete specific types of data, like browsing history and cookies, after 12 hours." (DLP)
-    1,  # "Turn off browser sync for personal information." (DLP)
-    1,  # "Stop the browser from saving history." (DLP)
-    1,  # "Forbid file uploads to external platforms." (DLP)
-    1,  # "Prohibit form autofill in the browser." (DLP)
-    1,  # "Ask for download location every time." (DLP)
-    1,  # "Disable browser completely sync for any personal data." (DLP)
-    1,  # "Prevent the browser from saving any history." (DLP)
-    1,  # "Block all file uploads to unknown external websites." (DLP)
-    1,  # "Disallow automatic autofill of forms on any website in the browser." (DLP)
-    1,  # "Prompt user for download location each time." (DLP)
+    # Start training
+    trainer.train()
 
-    # These are classified based on your notes
-    1,  # "Block third party cookies" (DLP)
-    0,  # "block websites" (TPP)
-    0,  # "allow websites" (TPP)
-    0,  # "prevent websites" (TPP)
+    # Save model and tokenizer after training
+    save_model_and_tokenizer(model, tokenizer)
 
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-]
-misclassified_policies = []
+    # Clear the model cache
+    clear_model_cache()
 
-# Track misclassified policies
-for sample, expected_category in zip(test_samples, expected_categories):
-    category = classify_text(sample)
-    
-    # Check if the predicted category matches the expected category
-    if category == "Uncertain" or category != expected_category:
-        misclassified_policies.append(sample)
 
-# Display results
-for sample in test_samples:
-    category = classify_text(sample)
-    
-    # Check if the result is 'Uncertain' before using it as an index
-    if category == "Uncertain":
-        print(f"Input: {sample}\nPredicted Category: {category}\n")
-    else:
-        print(f"Input: {sample}\nPredicted Category: {categories[category]}\n")
+class_weights = compute_class_weight('balanced', classes=np.unique(labels), y=labels)
+class_weights = torch.tensor(class_weights, dtype=torch.float)
+loss_fn = nn.CrossEntropyLoss(weight=class_weights)
 
-print(model)
+
+# Compute weighted loss (this can be integrated into Trainer's loss function)
+def compute_loss(preds, labels):
+    loss = loss_fn(preds, labels)
+    return loss
+
+from collections import Counter
+print(Counter(labels))  # Check the distribution of labels
+
+if __name__ == "__main__":
+    # Train the model if necessary
+    train_model()
+
+    # Automate classification of text samples and track misclassifications
+    print("\n--- Automated Text Classification ---\n")
+    misclassified = []
+
+    for text, true_label in zip(texts, labels):
+        result = classify_text_with_context(text)
+        predicted_label = result['label']
+        confidence = result['confidence']
+
+        if predicted_label != map_class_id_to_label(true_label):
+            misclassified.append((text, predicted_label, true_label, confidence))
+
+        print(f"Input: {text}")
+        print(f"Prediction: {predicted_label}")
+        print(f"Confidence: {confidence:.4f}")
+        print("-" * 80)
+
+    # Display misclassified examples
+    print("\n--- Misclassified Examples ---\n")
+    for item in misclassified:
+        print(f"Text: {item[0]}")
+        print(f"Predicted: {item[1]}, True: {item[2]}, Confidence: {item[3]:.4f}")
+        print("-" * 80)
+
+    print("\n--- Classification Complete ---")
