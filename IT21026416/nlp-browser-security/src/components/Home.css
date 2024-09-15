@@ -1,0 +1,159 @@
+/* Home.css */
+.home-container {
+    display: flex;
+    justify-content: space-around;
+    padding: 20px;
+    height: calc(100vh - 100px); /* Adjust based on your header/footer height */
+    background-color: #f0f2f5; /* Light background for the main page */
+    flex-wrap: wrap; /* Allows flexibility on small screens */
+  }
+  
+  /* Chat Window Styles */
+  .chat-window {
+    width: 30%;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  
+  .chat-window .messages {
+    flex-grow: 1;
+    overflow-y: auto;
+    margin-bottom: 20px;
+  }
+  
+  .chat-window .messages .message {
+    padding: 10px;
+    margin: 5px 0;
+    background-color: #eef4fa;
+    border-radius: 6px;
+    line-height: 1.4;
+  }
+  
+  .chat-window .messages .message.user-message {
+    background-color: #007bff;
+    color: white;
+    text-align: right;
+  }
+  
+  .chat-window .messages .message.system-message {
+    background-color: #e2e3e5;
+    color: black;
+  }
+  
+  /* Execution Log Styles */
+  .execution-log {
+    width: 100%;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-top: 10px;
+    padding: 15px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .execution-log h3 {
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+    font-weight: bold;
+  }
+  
+  .execution-log p {
+    margin: 0;
+    color: #555;
+  }
+  
+  /* Input Form Styles */
+  .input-form {
+    width: 35%; /* Take up 35% of the width */
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .input-form textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: none;
+  }
+  
+  .input-form button {
+    width: 100%;
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background-color 0.3s ease;
+  }
+  
+  .input-form button:hover {
+    background-color: #0056b3;
+  }
+  
+  /* General Styles */
+  h1, h2, h3 {
+    font-family: 'Arial', sans-serif;
+    color: #333;
+  }
+  
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 20px;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+  }
+  
+  h3 {
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+  }
+  
+  label {
+    font-weight: bold;
+  }
+  
+  input, textarea {
+    font-family: 'Arial', sans-serif;
+  }
+  
+  button {
+    font-family: 'Arial', sans-serif;
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .home-container {
+      flex-direction: column;
+      height: auto;
+    }
+  
+    .chat-window,
+    .input-form {
+      width: 100%;
+      margin-bottom: 20px;
+    }
+  
+    .chat-window {
+      flex: none;
+    }
+  
+    .input-form {
+      flex: none;
+    }
+  }
+  
