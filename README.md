@@ -22,3 +22,29 @@ The objective of this component is to employee artificial neural networks to ana
 * 32 node hidden layer
 * 1 node output layer
 making this ANN model less resource intensive while retaining the accuracy of predictions. After training the model with a labeled training dataset by provided university of Queensland, Australia, the model is embedded into a network traffic interceptor proxy to capture and make predictions upon the network traffic. Also this component consists of a threat intelligence gathering solution. This uses an opensource honeypot solution to gather threat intelligence like, malware IPs, usernames, passwords. These data is correlated with the corporate environments to improve the overall security posture of the organization.
+
+
+Scoring and Mitigating Browser-based Risks through User Behavior Profiling
+
+The objective of this component is to assess and mitigate browser-based security risks in a corporate environment by profiling user behavior and calculating risk scores. This system employs a comprehensive approach to evaluate the web presence hygiene of each user, considering potential browser-based security vulnerabilities identified through STRIDE threat modeling.
+
+The component consists of several key elements:
+
+1. Telemetry Collection: Endpoint agents collect detailed telemetry data on user browsing behavior and browser configurations. This data is transmitted via Filebeat to an Elasticsearch database for centralized storage and analysis.
+
+2. Risk Scoring Engine: Utilizing Kibana's runtime fields and scripted fields, the system evaluates risk scores based on the collected telemetry data. The scoring algorithm considers various factors such as:
+   - Browser version and patch level
+   - Enabled security features
+   - Installed extensions and their permissions
+   - Browsing patterns and accessed websites
+   - User interactions with potentially risky content
+
+3. User Behavior Profiling: By analyzing the collected data and risk scores, the system creates detailed profiles for each user. These profiles provide insights into individual browsing habits, risk tendencies, and potential security vulnerabilities.
+
+4. Centralized Management Console: A single-pane management interface displays user profiles, risk scores, and detailed metrics. This allows security teams to quickly identify high-risk users and potential security gaps across the organization.
+
+5. Mitigation Recommendations: Based on identified risks and user profiles, the system generates tailored mitigation strategies. These may include targeted user training, browser configuration changes, or implementation of additional security controls.
+
+6. Continuous Monitoring and Adaptation: The system continuously updates risk scores and user profiles as new telemetry data is received, allowing for real-time risk assessment and rapid response to emerging threats.
+
+By leveraging this user behavior profiling and risk scoring approach, organizations can proactively identify and address browser-based security risks, enhancing their overall security posture and reducing the likelihood of successful attacks exploiting web-based vulnerabilities.
