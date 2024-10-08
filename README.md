@@ -31,16 +31,13 @@ The objective of this component is to assess and mitigate browser-based security
 The component consists of several key elements:
 
 1. Telemetry Collection: Endpoint agents collect detailed telemetry data on user browsing behavior and browser configurations. This data is transmitted via Filebeat to an Elasticsearch database for centralized storage and analysis.
-
 2. Risk Scoring Engine: Utilizing Kibana's runtime fields and scripted fields, the system evaluates risk scores based on the collected telemetry data. The scoring algorithm considers various factors such as:
    - Browser version and patch level
    - Enabled security features
    - Installed extensions and their permissions
    - Browsing patterns and accessed websites
    - User interactions with potentially risky content
-
 3. User Behavior Profiling: By analyzing the collected data and risk scores, the system creates detailed profiles for each user. These profiles provide insights into individual browsing habits, risk tendencies, and potential security vulnerabilities.
-
 4. Centralized Management Console: A single-pane management interface displays user profiles, risk scores, and detailed metrics. This allows security teams to quickly identify high-risk users and potential security gaps across the organization.
 
 By leveraging this user behavior profiling and risk scoring approach, organizations can proactively identify and address browser-based security risks, enhancing their overall security posture and reducing the likelihood of successful attacks exploiting web-based vulnerabilities.
