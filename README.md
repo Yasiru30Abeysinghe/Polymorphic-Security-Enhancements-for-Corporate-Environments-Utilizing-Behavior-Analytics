@@ -63,12 +63,12 @@ The key objective of this system is to **automate browser security configuration
 
 2. Browser Compatibility & Configuration 
 
-* Configures policies across Chromium-based browsers.
-* Policies are mapped to the appropriate registry paths dynamically during execution.
+    * Configures policies across Chromium-based browsers.
+    * Policies are mapped to the appropriate registry paths dynamically during execution.
 
 3. Logging Mechanism
 
-* Policies are logged only after successful execution on the devices.
-* Logs are saved in the logs folder with detailed information, including policy type, timestamp, and status.
+    * Policies are logged only after successful execution on the devices.
+    * Logs are saved in the logs folder with detailed information, including policy type, timestamp, and status.
  
 
