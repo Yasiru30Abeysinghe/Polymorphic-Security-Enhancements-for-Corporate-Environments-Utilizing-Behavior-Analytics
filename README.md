@@ -56,9 +56,9 @@ The key objective of this system is to **automate browser security configuration
 
 1. NLP Policy Generation Engine 
 
-* Translates high-level security requirements into technical configurations.
-* Supports multiple policy categories, such as Threat Prevention and Data Leakage Prevention (DLP).
-* Maps user inputs to specific browser registry settings.
+    * Translates high-level security requirements into technical configurations.
+    * Supports multiple policy categories, such as Threat Prevention and Data Leakage Prevention (DLP).
+    * Maps user inputs to specific browser registry settings.
 
 
 2. Browser Compatibility & Configuration 
