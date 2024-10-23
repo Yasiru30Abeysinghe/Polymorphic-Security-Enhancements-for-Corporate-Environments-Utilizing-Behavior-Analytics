@@ -41,3 +41,34 @@ The component consists of several key elements:
 4. Centralized Management Console: A single-pane management interface displays user profiles, risk scores, and detailed metrics. This allows security teams to quickly identify high-risk users and potential security gaps across the organization.
 
 By leveraging this user behavior profiling and risk scoring approach, organizations can proactively identify and address browser-based security risks, enhancing their overall security posture and reducing the likelihood of successful attacks exploiting web-based vulnerabilities.
+
+###  NLP-based Browser Policy Generation and Enforcement System
+
+Objectives
+The key objective of this system is to **automate browser security configurations** based on high-level inputs. This component ensures that enterprises can:
+
+* Prevent browser-based security threats through policy enforcement (e.g., blocking third-party cookies, managing browser extensions).
+* Streamline DLP (Data Leakage Prevention) and Threat Prevention policies through NLP-based automation.
+* Provide flexibility across multiple Chromium-based browsers by dynamically adjusting configurations.
+
+### Key Components
+
+
+1. NLP Policy Generation Engine 
+
+* Translates high-level security requirements into technical configurations.
+* Supports multiple policy categories, such as Threat Prevention and Data Leakage Prevention (DLP).
+* Maps user inputs to specific browser registry settings.
+
+
+2. Browser Compatibility & Configuration 
+
+* Configures policies across Chromium-based browsers.
+* Policies are mapped to the appropriate registry paths dynamically during execution.
+
+3. Logging Mechanism
+
+* Policies are logged only after successful execution on the devices.
+* Logs are saved in the logs folder with detailed information, including policy type, timestamp, and status.
+ 
+
