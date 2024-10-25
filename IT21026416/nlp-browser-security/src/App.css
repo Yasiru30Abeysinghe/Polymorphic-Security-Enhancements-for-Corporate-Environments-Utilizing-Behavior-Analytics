@@ -59,11 +59,12 @@ body {
 .input-form textarea {
   padding: 10px;
   font-size: 16px;
-  width: 400px;
+  width: 100%; /* Allow it to take the full width of the container */
   border: 1px solid #ccc;
   border-radius: 5px;
-  resize: none;
+  resize: vertical; /* Allow vertical resizing */
 }
+
 
 .input-form button {
   background-color: #007bff;
@@ -84,13 +85,17 @@ body {
   border: 1px solid #ddd;
   border-radius: 5px;
   background-color: #f9f9f9;
+  max-height: 400px; /* Set a maximum height */
+  overflow-y: auto;  /* Enable vertical scrolling */
 }
 
 .chat-window {
   flex-grow: 1;
-  overflow-y: auto;
+  overflow-y: auto; /* Ensure chat window is scrollable */
   padding: 10px;
+  max-height: 300px; /* Optional: Limit the height to fit the container */
 }
+
 
 .chat-bubble {
   background-color: #007bff;
@@ -99,6 +104,8 @@ body {
   border-radius: 5px;
   margin-bottom: 10px;
   max-width: 60%;
+  word-wrap: break-word; /* Break long words to fit within the bubble */
+  white-space: pre-wrap; /* Maintain formatting and allow wrapping */
 }
 
 .chat-bubble.system {
@@ -133,3 +140,13 @@ body {
 .apply-policies-btn:hover {
   background-color: darkgreen;
 }
+
+/* App.css */
+
+.clickable-graph:hover {
+  opacity: 0.8; /* Add a slight transparency on hover */
+  transform: scale(1.05); /* Slight zoom effect on hover */
+  transition: all 0.3s ease; /* Smooth transition */
+}
+
+
