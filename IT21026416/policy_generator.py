@@ -7,6 +7,13 @@ import requests
 from datetime import datetime
 from backendcodeforextension import process_extension_whitelist_blacklist
 import subprocess
+import shutil
+
+# Log settings for visibility
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+
+# Centralized folder path
+REMOTE_FOLDER = r"C:\ProgramData\policy_exec"
 
 def generate_extension_config(specifications):
     logging.info("Generating browser extension configuration")
@@ -56,6 +63,8 @@ def generate_extension_config(specifications):
         return None
     return True  # Indicating success if needed
 
+# Log settings
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 
 def generate_policy_files(specifications):
     """
@@ -101,7 +110,7 @@ def generate_policy_files(specifications):
         'BrowsingDataLifetime': 'BrowsingDataLifetime',
         'ExemptDomainFileTypePairsFromFileTypeDownloadWarnings': 'ExemptDomainFileTypePairsFromFileTypeDownloadWarnings',
 
-        #new from WFP
+        #is is either dlp or tpp
         'BlockThirdPartyCookies':'BlockThirdPartyCookies',
         'BlockURLs':'URLBlocklist',
         'AllowURLs':'URLAllowlist'
@@ -161,7 +170,7 @@ def generate_policy_files(specifications):
             logging.info(f"Added BrowsingDataLifetime settings for {browser}: {policy_data[browser]['policies']['BrowsingDataLifetime']}")
         else:
             logging.info(f"Skipping BrowsingDataLifetime for {browser} as no data type is provided.")
-            logging.info(f"hello , this is a test test testing purpose ")
+           
         # Processing ExemptDomainFileTypePairsFromFileTypeDownloadWarnings policy
         domains = [domain.strip() for domain in specifications.get('domains', '').split(',')]
         file_extension = specifications.get('file_extension', '').lower()
@@ -183,27 +192,6 @@ def generate_policy_files(specifications):
             policy_data[browser]['policies'][policy_mappings['BlockThirdPartyCookies']] = policy_value
             logging.info(f"Set BlockThirdPartyCookies to {policy_value} for {browser}")
                 
-
-        # Processing other existing policies
-        for key, value in specifications.items():
-            if key not in ['domains', 'file_extension', 'BrowsingDataLifetime[data_types][]', 'BrowsingDataLifetime[time_to_live_in_hours]', *security_policies, 'BlockURLs', 'AllowURLs', 'WhitelistExtensions', 'BlacklistExtensions']:
-                if value != 'not_configured':
-                    policy_name = policy_mappings.get(key)
-                    if policy_name:
-                        # Convert SafeBrowsingProtectionLevel and other numeric settings to integers
-                        if key == 'SafeBrowsingProtectionLevel':
-                            policy_value = int(value)
-                        elif key == 'BlockExcessiveAds':  # Ensure handling of this key
-                            policy_value = 2 if value == 'enable' else 1
-                        else:
-                            # Convert values to integers where necessary
-                            try:
-                                policy_value = int(value) if value.isdigit() else 1 if value.lower() in ['allow', 'enable', 'yes'] else 0
-                            except ValueError:
-                                logging.error(f"Error converting {key}: {value} to integer.")
-                                continue
-                            policy_data[browser]['policies'][policy_name] = policy_value
-                            logging.info(f"Set {policy_name} to {policy_value} for {browser}")
         
         # Process BlockURLs
         block_urls = specifications.get('BlockURLs')
@@ -251,8 +239,37 @@ def generate_policy_files(specifications):
             logging.info(f"Skipping extension whitelist/blacklist for {browser} as no extensions are provided.")
 
 
-    # Generate the browser extension config
 
+                # Process SafeBrowsingProtectionLevel
+        safe_browsing_protection_level = specifications.get('SafeBrowsingProtectionLevel')
+        if safe_browsing_protection_level:
+            policy_value = int(safe_browsing_protection_level)  # Convert the value to an integer
+            policy_data[browser]['policies'][policy_mappings['SafeBrowsingProtectionLevel']] = policy_value
+            logging.info(f"Set SafeBrowsingProtectionLevel to {policy_value} for {browser}")
+
+        # Process BlockExcessiveAds
+        block_excessive_ads = specifications.get('BlockExcessiveAds')
+        if block_excessive_ads:
+            policy_value = 2 if block_excessive_ads == 'enable' else 1  # Enable = 2, otherwise = 1
+            policy_data[browser]['policies'][policy_mappings['BlockExcessiveAds']] = policy_value
+            logging.info(f"Set BlockExcessiveAds to {policy_value} for {browser}")
+
+
+        # Processing other existing policies
+        for key, value in specifications.items():
+            if key not in ['domains', 'file_extension', 'BrowsingDataLifetime[data_types][]', 'BrowsingDataLifetime[time_to_live_in_hours]', *security_policies, 'BlockURLs', 'AllowURLs', 'WhitelistExtensions', 'BlacklistExtensions']:
+                if value != 'not_configured':
+                    policy_name = policy_mappings.get(key)
+                    if policy_name:
+                        try:
+                            policy_value = int(value) if value.isdigit() else 1 if value.lower() in ['allow', 'enable', 'yes'] else 0
+                        except ValueError:
+                            logging.error(f"Error converting {key}: {value} to integer.")
+                            continue
+                        policy_data[browser]['policies'][policy_name] = policy_value
+                        logging.info(f"Set {policy_name} to {policy_value} for {browser}")
+
+            # Generate the browser extension config
 
     logging.info(f"Final policy data for {browser}: {json.dumps(policy_data[browser], indent=4)}")
 
@@ -268,18 +285,24 @@ def generate_policy_files(specifications):
     vm_username = vm['username']
     vm_password = vm['password']
     
-    remote_json_path = r"C:\policy_exec\policies.json"
+    remote_json_path = f"{SECURE_FOLDER}\\policies.json"
+    remote_ps_script_path = f"{SECURE_FOLDER}\\generate_policy_reg_files.ps1"
 
-    remote_ps_script_path = r"C:\policy_exec\generate_policy_reg_files.ps1"
-
-    # Ensure we handle JSON and PowerShell script in the same manner
-    if upload_json_to_vm(vm_ip, vm_username, vm_password, local_json_path, remote_json_path):
+    if upload_file(vm_ip, vm_username, vm_password, local_json_path, remote_json_path):
         # Now upload PowerShell script in the same way
         local_ps_script_path = r"D:\NLP\NLPFinal\Main\generate_policy_reg_files.ps1"
-        if upload_ps_script_to_vm(vm_ip, vm_username, vm_password, local_ps_script_path, remote_ps_script_path):
+        if upload_file(vm_ip, vm_username, vm_password, local_ps_script_path, remote_ps_script_path):
             # If both files were uploaded successfully, execute the script
             result = execute_on_remote_vm(vm_ip, vm_username, vm_password, remote_json_path, remote_ps_script_path)
-            return result
+
+            if result.get("status") == "success":
+                # Save logs only after successful execution
+                save_execution_log(specifications)
+                logging.info("Policies executed successfully, logs saved.")
+                return result
+            else:
+                logging.error("Policy execution failed on the VM.")
+                return {"status": "error", "details": "Policy execution failed on the VM."}
         else:
             logging.error("Failed to upload PowerShell script to the VM.")
             return {"status": "error", "details": "Failed to upload PowerShell script."}
@@ -287,86 +310,120 @@ def generate_policy_files(specifications):
         logging.error("Failed to upload JSON file to the VM.")
         return {"status": "error", "details": "Failed to upload JSON file."}
 
-def upload_ps_script_to_vm(vm_ip, vm_username, vm_password, local_ps_script_path, remote_ps_script_path):
+# Step 5: Save Execution Logs if Successful
+def save_execution_log(specifications):
+    """
+    Save the received specifications to a JSON log after successful execution.
+    """
+    print("save_execution_log() function called")  # Add this line
+
     try:
-        logging.info(f"Connecting to VM {vm_ip} to upload PowerShell script.")
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(vm_ip, username=vm_username, password=vm_password)
+        logs_folder = r"D:\NLP\NLPFinal\Main\logs"
 
-        sftp = ssh.open_sftp()
+        if not os.path.exists(logs_folder):
+            os.makedirs(logs_folder)
+            logging.info(f"Created logs folder: {logs_folder}")
+        else:
+            logging.info(f"Logs folder already exists: {logs_folder}")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        policy_category = determine_policy_category(specifications)  # Example: Data_Leakage_Prevention
+        log_file_path = os.path.join(logs_folder, f"{policy_category}_policy_{timestamp}.json")
 
-        # Ensure remote directory exists
-        remote_dir = os.path.dirname(remote_ps_script_path)
-        logging.info(f"Checking if remote directory {remote_dir} exists.")
-        try:
-            sftp.stat(remote_dir)
-            logging.info(f"Directory {remote_dir} already exists.")
-        except FileNotFoundError:
-            logging.info(f"Creating remote directory {remote_dir}.")
-            sftp.mkdir(remote_dir)
+        # Debugging print statements
+        logging.info(f"Saving log to: {log_file_path}")
 
-        # Upload the PowerShell script
-        logging.info(f"Attempting to upload PowerShell script {local_ps_script_path} to {remote_ps_script_path}")
-        sftp.put(local_ps_script_path, remote_ps_script_path)
-        logging.info(f"PowerShell script uploaded successfully to {remote_ps_script_path}")
-        
+        with open(log_file_path, 'w') as log_file:
+            json.dump(specifications, log_file, indent=4)
+
+        logging.info(f"Execution log saved to {log_file_path}")
+
+    except Exception as e:
+        logging.error(f"Failed to save execution log: {e}")
+
+
+def determine_policy_category(specifications):
+    """
+    Determine the policy category dynamically based on the specifications.
+    """
+    if 'PrintWebpage' in specifications:
+        return "Data_Leakage_Prevention"
+    elif 'SafeBrowsingProtectionLevel' in specifications:
+        return "Threat_Prevention"
+    else:
+        return "Uncategorized"
+
+
+## Initialize logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+
+# Define the secure centralized folder path
+SECURE_FOLDER = r"C:\ProgramData\policy_exec"
+
+# Step 1: Create and Secure the Folder Automatically
+def create_secure_folder():
+    try:
+        if not os.path.exists(SECURE_FOLDER):
+            os.makedirs(SECURE_FOLDER)
+            cmd = f'icacls "{SECURE_FOLDER}" /inheritance:r /grant Administrators:F /grant SYSTEM:F'
+            subprocess.run(cmd, shell=True, check=True)
+            logging.info(f"Folder created and secured: {SECURE_FOLDER}")
+        else:
+            logging.info(f"Folder already exists: {SECURE_FOLDER}")
+    except Exception as e:
+        logging.error(f"Failed to create or secure folder: {e}")
+        raise
+
+
+# Step 2: Load Deployment Details from deployment.json
+def load_deployment_data():
+    try:
+        with open('deployment.json', 'r') as file:
+            deployment_data = json.load(file)
+            logging.info("Deployment data loaded successfully.")
+            return deployment_data['vms'][0]
+    except Exception as e:
+        logging.error(f"Error loading deployment data: {e}")
+        raise
+
+# Step 3: Upload Files to Remote VM
+def upload_file(ssh_client, local_path, remote_path):
+    try:
+        sftp = ssh_client.open_sftp()
+        sftp.put(local_path, remote_path)
+        logging.info(f"Uploaded {local_path} to {remote_path}")
         sftp.close()
-        ssh.close()
         return True
     except Exception as e:
-        logging.error(f"Error during PowerShell script upload or SSH connection: {e}")
+        logging.error(f"Failed to upload {local_path}: {e}")
         return False
     
 
-def upload_json_to_vm(vm_ip, vm_username, vm_password, local_json_path, remote_json_path):
-    try:
-        logging.info(f"Connecting to VM {vm_ip} for file upload.")
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(vm_ip, username=vm_username, password=vm_password)
-
-        # Ensure remote directory exists
-        sftp = ssh.open_sftp()
-        remote_dir = os.path.dirname(remote_json_path)
-        logging.info(f"Checking if remote directory {remote_dir} exists.")
-        
-        try:
-            sftp.stat(remote_dir)
-            logging.info(f"Directory {remote_dir} already exists.")
-        except FileNotFoundError:
-            logging.info(f"Creating remote directory {remote_dir}.")
-            sftp.mkdir(remote_dir)
-
-        # Attempt to upload the file
-        logging.info(f"Attempting to upload {local_json_path} to {remote_json_path}")
-        sftp.put(local_json_path, remote_json_path)
-        logging.info(f"File uploaded successfully to {remote_json_path}")
-        sftp.close()
-        ssh.close()
-        return True
-    except Exception as e:
-        logging.error(f"Error during file upload or SSH connection: {e}")
-        return False
-
+# Step 4: Execute PowerShell Script on Remote VM
 def execute_on_remote_vm(vm_ip, vm_username, vm_password, json_file_path, remote_ps_script_path):
-    """
-    Connects to the remote VM, uploads the PowerShell script, and executes it.
-    """
     try:
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(vm_ip, username=vm_username, password=vm_password)
+        with paramiko.SSHClient() as ssh:
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(vm_ip, username=vm_username, password=vm_password)
 
-        # Execute the PowerShell script on the VM
-        execute_cmd = f'powershell.exe -ExecutionPolicy Bypass -File "{remote_ps_script_path}" -jsonFilePath "{json_file_path}"'
+        # Execute the PowerShell script
+        execute_cmd = f'powershell.exe -ExecutionPolicy Bypass -File "C:\\ProgramData\\policy_exec\\generate_policy_reg_files.ps1" -jsonFilePath "C:\\ProgramData\\policy_exec\\policies.json"'
+
+
+
+
         logging.info(f"Executing PowerShell script on the VM: {execute_cmd}")
-        stdin, stdout, stderr = ssh.exec_command(execute_cmd)
 
-        # Capture and log the command output and error
+        stdin, stdout, stderr = ssh.exec_command(execute_cmd)
+        logging.error(f"StdErr: {stderr.read().decode()}")
+        logging.info(f"StdOut: {stdout.read().decode()}")
+
+
+
+        # Capture output and errors
         stdout_data = stdout.read().decode()
         stderr_data = stderr.read().decode()
         logging.info(f"Script executed on the remote VM: {stdout_data}")
+
         if stderr_data:
             logging.error(f"Errors from the remote VM: {stderr_data}")
             return {"policy_file_path": None, "status": "error"}
@@ -377,60 +434,57 @@ def execute_on_remote_vm(vm_ip, vm_username, vm_password, json_file_path, remote
     except Exception as e:
         logging.error(f"Failed to execute script on remote VM: {e}")
         return {"policy_file_path": None, "status": "error"}
+
+# Main Function: Orchestrates the Process
+def main(specifications):
+    # Ensure secure folder exists
+    create_secure_folder()
+
+    # Load VM credentials
+    vm = load_deployment_data()
+    vm_ip, vm_username, vm_password = vm['ip'], vm['username'], vm['password']
+
+    with paramiko.SSHClient() as ssh:
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(vm_ip, username=vm_username, password=vm_password)
+    # Continue with the upload logic...
+
+    try:
+        logging.info(f"Connecting to VM {vm_ip}")
+        ssh.connect(vm_ip, username=vm_username, password=vm_password)
+
+        # Define local and remote paths
+        local_json_path = r"D:\NLP\NLPFinal\Main\policies.json"
+        local_ps_script_path = r"D:\NLP\NLPFinal\Main\generate_policy_reg_files.ps1"
+        remote_json_path = f"{SECURE_FOLDER}\\policies.json"
+        remote_ps_script_path = f"{SECURE_FOLDER}\\generate_policy_reg_files.ps1"
+
+        # Upload JSON and PowerShell script
+        if upload_file(ssh, local_json_path, remote_json_path) and \
+           upload_file(ssh, local_ps_script_path, remote_ps_script_path):
+
+            # Execute the script only if both files were uploaded
+            if execute_on_remote_vm(ssh, remote_ps_script_path, remote_json_path):
+                logging.info("Policy execution completed successfully.")
+                save_execution_log(specifications)
+                logging.info("Policies executed successfully, logs saved.")
+            else:
+                logging.error("Policy execution failed on the VM.")
+        else:
+            logging.error("File upload failed. Execution aborted.")
+    except Exception as e:
+        logging.error(f"Connection to VM failed: {e}")
+    finally:
+        ssh.close()
+
+# Example Usage
 if __name__ == "__main__":
-    specifications = {
-        'block_all': 'no',  # Change to 'yes' for testing blocking all downloads
+    sample_specifications = {
+        'block_all': 'no',
         'conditionType[]': ['url', 'file_type'],
         'conditionValue[]': ['www.chatgpt.com', 'txt'],
         'BlockThirdPartyCookies': 'enable',
         'BrowsingDataLifetime[data_type]': 'download_history',
         'BrowsingDataLifetime[time_to_live_in_hours]': '3',
     }
-    result = generate_policy_files(specifications)
-
-    if result:
-        logging.info(f"Policy generation result: {result}")
-    else:
-        logging.error("Policy generation failed.")
-
-    
-    # Add logging to inspect the result object
-    if result is None:
-        logging.error("Failed to generate policy files: Result is None")
-        exit(1)  # Exit or handle error appropriately
-
-    logging.info(f"Result from generate_policy_files: {result}")
-
-    if result.get("status") == "success":
-        # Define the local path of the PowerShell script
-        local_ps_script_path = r"D:\NLP\NLPFinal\Main\generate_policy_reg_files.ps1"
-        # Define the remote path where the PowerShell script should be uploaded on the VM
-        remote_ps_script_path = r"C:\policy_exec\generate_policy_reg_files.ps1"
-
-        # Add logging to verify the function call arguments
-        logging.info(f"Calling execute_on_remote_vm with: vm_ip={result['vm_ip']}, "
-                     f"vm_username={result['vm_username']}, vm_password={result['vm_password']}, "
-                     f"policy_file_path={result['policy_file_path']}, "
-                     f"local_ps_script_path={local_ps_script_path}, "
-                     f"remote_ps_script_path={remote_ps_script_path}")
-        
-        # Execute the script on the remote VM
-        try:
-            ps_result = execute_on_remote_vm(
-                result["vm_ip"], 
-                result["vm_username"], 
-                result["vm_password"], 
-                result["policy_file_path"], 
-                local_ps_script_path, 
-                remote_ps_script_path
-            )
-            
-            # Log and print the result from the function
-            logging.info(f"Result from execute_on_remote_vm: {ps_result}")
-            print(ps_result)
-        
-        except Exception as e:
-            logging.error(f"Failed to execute PowerShell script on the VM: {e}")
-            print(f"Failed to execute PowerShell script: {e}")
-    else:
-        logging.error(f"Error in generating policies: {result.get('details', 'Unknown error')}")
+    main(sample_specifications)
