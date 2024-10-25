@@ -1,0 +1,26 @@
+.policy-form-container {
+    padding: 20px;
+    margin-top: 20px;
+    background-color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .form-title {
+    font-weight: 500;
+    font-size: 18px;
+    color: #333333;
+    margin-bottom: 20px;
+  }
+  
+  .apply-button {
+    background-color: #0078D4;
+    color: white;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+  }
+  
+  .apply-button:hover {
+    background-color: #005a9e;
+  }
+  
