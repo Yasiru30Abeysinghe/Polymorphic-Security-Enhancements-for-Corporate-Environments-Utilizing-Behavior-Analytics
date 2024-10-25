@@ -16,6 +16,9 @@ from sklearn.utils.class_weight import compute_class_weight
 model = None
 tokenizer = None
 
+# Path to the saved model state
+model_save_dir = './saved_models'
+
 # Load the environment variables from the .env file
 load_dotenv(dotenv_path=r'D:\NLP\NLPFinal\Main\nlp-browser-security\.env')
 
@@ -25,40 +28,27 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # Test if the key is loaded correctly
 print(f"OpenAI API Key: {openai.api_key}")
 
+# Import the necessary components
+import torch
+from transformers import BertForSequenceClassification
+
+# Path to the saved model state
+model_save_dir = './saved_models'
+
+
 def load_model():
-    global model, tokenizer
-    model_name = 'bert-base-uncased'
+    model_path = './saved_models'  # Path to saved model directory
+    try:
+        # Load the entire model from pytorch_model.bin or model_state.pth
+        global model, tokenizer
+        model = BertForSequenceClassification.from_pretrained(model_path)
+        tokenizer = BertTokenizer.from_pretrained(model_path)
+        print("Model and tokenizer loaded successfully.")
+        return model, tokenizer
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        return None, None
 
-    # Check if model and tokenizer are already loaded
-    if model is None:
-        print("Loading BERT model...")
-        try:
-            # Load pre-trained BERT model
-            model = BertForSequenceClassification.from_pretrained(model_name, num_labels=3)
-            
-            # Apply dropout configuration
-            model.config.hidden_dropout_prob = 0.2  # Apply dropout to the BERT model
-            model.config.attention_probs_dropout_prob = 0.2
-            print("Model loaded and dropout configuration applied.")
-        
-        except Exception as e:
-            print(f"Error loading BERT model: {e}")
-    
-    else:
-        print("BERT model is already loaded.")
-
-    if tokenizer is None:
-        print("Loading BERT tokenizer...")
-        try:
-            # Load the tokenizer
-            tokenizer = BertTokenizer.from_pretrained(model_name)
-            print("Tokenizer loaded successfully.")
-        
-        except Exception as e:
-            print(f"Error loading BERT tokenizer: {e}")
-    
-    else:
-        print("BERT tokenizer is already loaded.")
 
 
 # Data augmentation methods (for training purposes)
@@ -169,6 +159,7 @@ def save_model_and_tokenizer(model, tokenizer, save_dir='./saved_models'):
 
 texts = [
     # Threat Prevention Policy (TPP)
+    "What are the policies for handling PII in browsers?",
     "How do I ensure secure browsing for users?", # TPP
     "What’s the best way to block risky websites?", # TPP
     "I need to protect the browser against malware.", # TPP
@@ -184,7 +175,7 @@ texts = [
     "Allow only necessary permissions on the browser.", # TPP
     "Can we disable notifications from untrusted sites?", # TPP
     "How do we control browser extension installation?", # TPP
-        # Threat Prevention Policy (TPP) samples
+    "Restrict permissions on sensitive data",
     "Block all attempts to use the browser camera", # TPP
     "Restrict access to camera in browser", # TPP
     "Disable any requests for camera access", # TPP
@@ -249,9 +240,9 @@ texts = [
 
 labels = [
     # TPP (0) and DLP (1) labels
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, # TPP labels
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1,1,1,1,1,1, 1, 1, 1, 1, 1, 1, 1, 1, # DLP labels
-    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 1, 1, 1, 1,  # Compliance/Vague labels (could map to "Uncertain")
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, # TPP labels
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1,1,1,1,1,1, 1,1, 1, 1, 1, 1, 1, 1, 1, # DLP labels
+    0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1,  # Compliance/Vague labels (could map to "Uncertain")
     0, 1, 
 ]
 print(f"Initial number of texts: {len(texts)}")
@@ -274,26 +265,28 @@ print(f"Number of labels after augmentation: {len(labels)}")
 train_texts = texts + augmented_texts
 train_labels = labels + augmented_labels
 
-def classify_text_with_context(input_text, threshold=0.3):  # Lowering the threshold to 0.3
-    load_model()
+def classify_text_with_context(input_text):
+    global model, tokenizer
+    if model is None or tokenizer is None:
+        model, tokenizer = load_model()
+    if model is None:
+        raise ValueError("Model loading failed. Ensure the model is available.")
+    
+    # Tokenize and pass input text through the model
     inputs = tokenizer(input_text, return_tensors='pt', truncation=True, padding=True)
     outputs = model(**inputs)
     logits = outputs.logits
-    probabilities = torch.softmax(logits, dim=-1)
+    probabilities = torch.softmax(logits / 1.5, dim=-1)  # Temperature scaling
 
+    # Get the predicted class
     predicted_class_id = torch.argmax(probabilities).item()
     confidence = probabilities[0][predicted_class_id]
 
-    if confidence < threshold:
-        clarification_needed = f"The model's confidence is below the threshold. Can you provide more details?"
-        return {
-            "label": "Uncertain",
-            "confidence": confidence.item(),
-            "justification": clarification_needed
-        }
-
+    # Always map the predicted class ID to either "Threat Prevention" or "Data Leakage"
     classification_label = map_class_id_to_label(predicted_class_id)
-    print(f"Classified: {input_text} as {classification_label} with confidence {confidence}")  # Add this line
+    print(f"Classified: {input_text} as {classification_label} with confidence {confidence}")  # For debugging
+    
+    # Generate explanation using OpenAI
     explanation = get_openai_justification(input_text, classification_label)
 
     return {
@@ -303,29 +296,64 @@ def classify_text_with_context(input_text, threshold=0.3):  # Lowering the thres
     }
 
 
+
 # Function to map class IDs to security categories
 def map_class_id_to_label(class_id):
-    class_map = {0: "Threat Prevention", 1: "Data Leakage", 2: "Uncertain"}
-    return class_map.get(class_id, "Uncertain")
+    # Map class IDs to either Threat Prevention or Data Leakage
+    class_map = {0: "Threat Prevention", 1: "Data Leakage"}
+    return class_map.get(class_id, "Threat Prevention")  # Default to Threat Prevention if an invalid class ID is given
 
-
-# Function to integrate OpenAI GPT-4 for generating justifications
 def get_openai_justification(input_text, classification_label):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a cybersecurity expert. You will help non technical users."},
-                {"role": "user", "content": f"Explain why the following policy is classified under {classification_label}: {input_text}"}
-            ],
-            max_tokens=100,
-            temperature=0.7,
+        explanation = ""
+        max_tokens = 200  # Increased token limit to handle longer explanations
+        prompt = (
+            "You are a cybersecurity expert specializing in browser security. "
+            "The predefined policy categories are as follows: "
+            "1. Threat Prevention: Includes policies like restricting permissions, blocking unsafe websites, disabling insecure extensions, etc. "
+            "2. Data Leakage: Includes policies like preventing data exfiltration, blocking file uploads, disabling autofill, etc. "
+            f"Explain why the following policy is classified under {classification_label} in this context: {input_text}. "
+            "Please highlight the most important sentence in the explanation by enclosing it in double asterisks, like **this is the key point**."
         )
-        explanation = response['choices'][0]['message']['content'].strip()
+
+        retry_count = 0
+        max_retries = 5  # Limit retries to prevent infinite loops
+
+        # Loop to handle continuation if the response is incomplete
+
+        while True:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a cybersecurity expert. You will help non-technical users."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=max_tokens,
+                temperature=0.7
+            )
+
+            response_text = response['choices'][0]['message']['content'].strip()
+            explanation += response_text
+
+            # Check if the response ends with a complete thought
+            if response_text.endswith('.') or response_text.endswith('!') or response_text.endswith('?'):
+                break
+            elif retry_count >= max_retries:
+                # Add a note if retry limit is reached
+                explanation += " [Note: Explanation may be incomplete due to response length limitations.]"
+                break
+            else:
+                # Adjust the continuation prompt for the next iteration
+                prompt = f"Please continue and complete the explanation: {response_text}"
+                retry_count += 1
+
         return explanation
+
     except Exception as e:
         print(f"OpenAI API error: {e}")
         return "Explanation could not be generated."
+
+
 
 print(f"Number of texts before split: {len(texts)}")
 print(f"Number of labels before split: {len(labels)}")
@@ -365,12 +393,12 @@ def train_model():
     # Define the training arguments
     training_args = TrainingArguments(
         output_dir='./results',
-        num_train_epochs=20,  # More epochs may help fine-tune the model better
-        per_device_train_batch_size=64,  # Increase batch size for broader data exposure
-        per_device_eval_batch_size=64,
+        num_train_epochs=15,  # More epochs may help fine-tune the model better
+        per_device_train_batch_size=16,  # Increase batch size for broader data exposure
+        per_device_eval_batch_size=16,
         warmup_steps=100,
         weight_decay=0.01,
-        learning_rate=5e-6,  # Lower learning rate for more fine-tuning # to 
+        learning_rate=1e-4,  # Lower learning rate for more fine-tuning # to 
         logging_dir='./logs',
         logging_steps=50,  # Log every 50 steps
         save_steps=500,  # Save checkpoint every 500 steps
@@ -386,7 +414,7 @@ def train_model():
 
     # Early stopping callback
     early_stopping = EarlyStoppingCallback(
-        early_stopping_patience=5,  # Stop training if the evaluation metric doesn't improve after 3 epochs
+        early_stopping_patience=8,  # Stop training if the evaluation metric doesn't improve after 3 epochs
         early_stopping_threshold=0.01  # Consider the training to have improved if the metric changes by at least 1%
     )
 
