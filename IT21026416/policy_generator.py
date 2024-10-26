@@ -277,6 +277,9 @@ def generate_policy_files(specifications):
     with open(local_json_path, 'w') as json_file:
         json.dump(policy_data, json_file, indent=4)
     logging.info(f"Policies saved locally to {local_json_path}")
+    
+    logging.info("Policy generation completed. Saving execution log.")
+    save_execution_log(specifications)  # Ensure this is called
 
     with open('deployment.json', 'r') as file:
         deployment_data = json.load(file)
@@ -310,28 +313,30 @@ def generate_policy_files(specifications):
         logging.error("Failed to upload JSON file to the VM.")
         return {"status": "error", "details": "Failed to upload JSON file."}
 
-# Step 5: Save Execution Logs if Successful
 def save_execution_log(specifications):
     """
     Save the received specifications to a JSON log after successful execution.
     """
-    print("save_execution_log() function called")  # Add this line
+    print("save_execution_log() function called")  # Debug print
 
     try:
         logs_folder = r"D:\NLP\NLPFinal\Main\logs"
 
+        # Check if the logs folder exists, and create it if it doesn't
         if not os.path.exists(logs_folder):
             os.makedirs(logs_folder)
             logging.info(f"Created logs folder: {logs_folder}")
         else:
             logging.info(f"Logs folder already exists: {logs_folder}")
+
+        # Generate a timestamp and log file path
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        policy_category = determine_policy_category(specifications)  # Example: Data_Leakage_Prevention
+        policy_category = determine_policy_category(specifications)
         log_file_path = os.path.join(logs_folder, f"{policy_category}_policy_{timestamp}.json")
 
-        # Debugging print statements
         logging.info(f"Saving log to: {log_file_path}")
 
+        # Save the log
         with open(log_file_path, 'w') as log_file:
             json.dump(specifications, log_file, indent=4)
 
@@ -339,7 +344,6 @@ def save_execution_log(specifications):
 
     except Exception as e:
         logging.error(f"Failed to save execution log: {e}")
-
 
 def determine_policy_category(specifications):
     """
