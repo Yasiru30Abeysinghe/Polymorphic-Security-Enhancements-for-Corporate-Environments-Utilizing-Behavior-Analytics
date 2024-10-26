@@ -1,1 +1,14 @@
-{"vms": [{"ip": "192.168.1.230", "username": "testa", "password": "test123*V"}]}
+{
+    "vms": [
+        {
+            "ip": "172.20.10.3",
+            "username": "test1",
+            "password": "test124*V"
+        },
+        {
+            "ip": "1.1.1.2",
+            "username": "test",
+            "password": "test123"
+        }
+    ]
+}
