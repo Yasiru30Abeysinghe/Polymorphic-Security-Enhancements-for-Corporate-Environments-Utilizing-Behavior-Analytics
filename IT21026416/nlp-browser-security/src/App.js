@@ -11,6 +11,9 @@ import PolicyForm from './components/PolicyForm';
 import Dashboard from './components/Dashboard';
 import ErrorBoundary from './components/ErrorBoundary';
 import PolicyExecutionDetail from './components/PolicyExecutionDetail';
+import VMManagement from './components/VMManagement'; // Import VMManagement component
+import QuickLinks from './components/QuickLinks';
+
 
 const theme = createTheme({
   palette: {
@@ -178,6 +181,7 @@ function App() {
           <Sidebar />
 
           <Routes>
+
             {/* Main Page Route */}
             <Route path="/" element={
               <>
@@ -214,6 +218,7 @@ function App() {
                     </Paper>
                   </Box>
                 </Box>
+                
 
                 {/* Search Bar Section */}
                 <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
@@ -237,6 +242,13 @@ function App() {
                       Find Logs Here
                     </Button>
                   </Link>
+
+                    {/* Button to Navigate to VM Management */}
+                    <Link to="/manage-vms" style={{ textDecoration: 'none' }}>
+                      <Button variant="outlined" color="secondary">
+                        Manage VMs
+                      </Button>
+                    </Link>
                 </Box>
 
                 {/* Conditional Rendering */}
@@ -288,6 +300,9 @@ function App() {
                 </Box>
               </>
             } />
+
+            <Route path="/manage-vms" element={<VMManagement />} />
+
           </Routes>
         </Paper>
       </Container>
