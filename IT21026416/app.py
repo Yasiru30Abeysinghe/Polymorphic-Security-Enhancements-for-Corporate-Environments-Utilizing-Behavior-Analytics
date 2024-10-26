@@ -17,6 +17,81 @@ CORS(app)  # Enable CORS to allow cross-origin requests from frontend
 # Load OpenAI API key
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
+
+DEPLOYMENT_FILE = 'deployment.json'
+
+
+def load_vms():
+    """Load the VMs from deployment.json."""
+    if os.path.exists(DEPLOYMENT_FILE):
+        with open(DEPLOYMENT_FILE, 'r') as f:
+            data = json.load(f)
+            return data.get('vms', [])
+    return []
+
+
+def save_vms(vms):
+    """Save the VMs to deployment.json."""
+    with open(DEPLOYMENT_FILE, 'w') as f:
+        json.dump({'vms': vms}, f, indent=4)
+
+
+@app.route('/vms', methods=['GET'])
+def get_vms():
+    """API to get the list of VMs."""
+    vms = load_vms()
+    return jsonify(vms)
+
+
+@app.route('/vms', methods=['POST'])
+def add_vm():
+    """API to add a new VM."""
+    try:
+        new_vm = request.json
+        logging.debug(f"Received VM Data: {new_vm}")
+        vms = load_vms()
+
+        # Check for duplicate IPs
+        if any(vm['ip'] == new_vm['ip'] for vm in vms):
+            return jsonify({'error': 'VM with this IP already exists'}), 400
+
+        vms.append(new_vm)
+        save_vms(vms)
+        return jsonify({'message': 'VM added successfully'}), 201
+    except Exception as e:
+        logging.error(f"Error adding VM: {str(e)}")
+        return jsonify({'error': 'Failed to add/update VM. Please try again.'}), 500
+
+@app.route('/vms/<int:index>', methods=['PUT'])
+def update_vm(index):
+    """API to update an existing VM."""
+    updated_vm = request.json
+    vms = load_vms()
+
+    # Validate index
+    if index < 0 or index >= len(vms):
+        return jsonify({'error': 'Invalid VM index'}), 400
+
+    # Update the VM at the specified index
+    vms[index] = updated_vm
+    save_vms(vms)
+    return jsonify({'message': 'VM updated successfully'}), 200
+
+@app.route('/vms/<int:index>', methods=['DELETE'])
+def delete_vm(index):
+    """API to delete a VM."""
+    vms = load_vms()
+
+    # Validate index range
+    if index < 0 or index >= len(vms):
+        return jsonify({'error': 'Invalid VM index'}), 404
+
+    # Remove the VM and save the updated list
+    deleted_vm = vms.pop(index)
+    save_vms(vms)
+    return jsonify({'message': f'VM {deleted_vm["ip"]} deleted successfully'}), 200
+
+
 @app.route('/analyze', methods=['POST'])
 def analyze():
     try:
