@@ -1,12 +1,13 @@
-import React from "react";
+import React from 'react';
+import './Header.css';
 
-const RealTimeFeedback = ({ feedback }) => {
-  return (
-    <div>
-      <h3>Real-Time Feedback:</h3>
-      <p>{feedback}</p>
-    </div>
-  );
+const Header = ({ onInputSubmit }) => {
+  const handleInput = (e) => {
+    e.preventDefault();
+    const inputValue = e.target.querySelector('input').value;
+    onInputSubmit(inputValue);
+  };
+
 };
 
-export default RealTimeFeedback
+export default Header;
