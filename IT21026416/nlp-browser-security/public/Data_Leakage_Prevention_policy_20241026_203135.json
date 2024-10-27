@@ -1,0 +1,20 @@
+{
+    "data_type": "browsing_history",
+    "time_to_live_in_hours": "1",
+    "PrintWebpage": "not_configured",
+    "AutomaticBrowserSync": "not_configured",
+    "SaveBrowserHistory": "not_configured",
+    "Autofill": "not_configured",
+    "CaptureScreenshots": "not_configured",
+    "RememberPasswords": "not_configured",
+    "SitePerProcess": "not_configured",
+    "SearchSuggestions": "not_configured",
+    "MetricsReporting": "not_configured",
+    "PromptDownloadLocation": "not_configured",
+    "BrowserHistoryDeletion": "not_configured",
+    "BackgroundProcessing": "not_configured",
+    "NetworkPredictions": "not_configured",
+    "ThirdPartyCookies": "not_configured",
+    "BlockURLs": "",
+    "AllowURLs": ""
+}
