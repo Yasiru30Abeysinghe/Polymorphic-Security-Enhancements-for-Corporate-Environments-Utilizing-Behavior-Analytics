@@ -1,9 +1,3 @@
-This repository contains the code base and other assets related to the research project components of the four group members.
-	1. Wijesinghe WMAJ - IT21038150
-	2. Abeysinghe YPP - IT21022142
-	3. Rukshana MAF - IT21026416
-	4. Adikari AMPS - IT20008314
-
 ## Introduction
 Our research project title is "Polymorphic Security Enhancements for Corporate Environments Utilizing Behavior Analytics". The project is aimed on building a comprehensive system that can bridge the gap between users in corporate environments and the current threat landscape.
 
